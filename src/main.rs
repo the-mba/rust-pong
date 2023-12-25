@@ -1,0 +1,587 @@
+//! A simplified implementation of the classic game "Breakout".
+
+pub mod parameters;
+use parameters::*;
+pub mod types;
+use types::*;
+pub mod bot;
+use bot::*;
+
+use bevy::{
+    prelude::*,
+    sprite::collide_aabb::{collide, Collision},
+    sprite::MaterialMesh2dBundle,
+};
+use std::sync::mpsc;
+use std::thread;
+use std::{fs, io::Write};
+use std::{fs::File, path::Path};
+use toml::to_string;
+
+const PARAMETERS_FILE_PATH: &str = "parameters.toml";
+
+fn main() {
+    let parameters = config();
+    let parameters_clone = parameters.clone();
+
+    let (tx, rx) = mpsc::channel::<MyKeyCode>();
+    thread::spawn(move || bot(parameters_clone, tx));
+
+    let received = rx.recv().unwrap();
+    if let MyKeyCode::A = received {
+        println!("Got: A!!");
+    }
+
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .insert_resource(Scoreboard {
+            scores: vec![0; parameters.players.len()],
+        })
+        .insert_resource(parameters.clone())
+        .insert_resource(Speed(parameters.ball.speed))
+        .insert_resource(ClearColor(parameters.colors.background))
+        .add_event::<CollisionEvent>()
+        .add_systems(Startup, setup)
+        // Add our gameplay simulation systems to the fixed timestep schedule
+        // which runs at 64 Hz by default
+        .add_systems(
+            FixedUpdate,
+            (
+                apply_velocity,
+                move_paddles,
+                check_for_collisions,
+                play_collision_sound,
+                update_velocity,
+            )
+                // `chain`ing systems together runs them in order
+                .chain(),
+        )
+        .add_systems(Update, (update_scoreboards, bevy::window::close_on_esc))
+        .run();
+}
+
+fn config() -> Parameters {
+    fn write_config_to_file_if_not_exists(
+        config: &Parameters,
+        file_path: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if Path::new(file_path).exists() {
+            return Ok(());
+        }
+        let toml_string = to_string(config)?;
+        let mut file = File::create(file_path)?;
+        file.write_all(toml_string.as_bytes())?;
+        println!("Config file created successfully.");
+        Ok(())
+    }
+
+    let up_direction = Vec3::new(0., 1., 0.);
+    let down_direction = Vec3::new(0., -1., 0.);
+
+    let parameters = Parameters {
+        players: vec![
+            ParametersPlayer {
+                wall_that_gives_points: WallLocation::Right,
+                moves: vec![
+                    Control::new(MyKeyCode::Q, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::A, Effect::Move(up_direction)),
+                ],
+            },
+            ParametersPlayer {
+                wall_that_gives_points: WallLocation::Left,
+                moves: vec![
+                    Control::new(MyKeyCode::O, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::L, Effect::Move(up_direction)),
+                ],
+            },
+        ],
+        paddle: ParametersPaddle {
+            width: 20,
+            height: 120,
+            speed: 500.,
+        },
+        distribution: ParametersDistribution {
+            up_direction,
+            down_direction,
+            gap_between_paddle_and_side_wall: 100,
+            gap_between_paddle_and_horizontal_wall: 10,
+            minimum_gap_between_paddle_and_goal_bricks: 20,
+            gap_between_bricks: 5,
+            minimum_gap_between_bricks_and_horizontal_walls: 20,
+            minimum_gap_between_bricks_and_vertical_walls: 40,
+        },
+        ball: ParametersBall {
+            starting_position: Vec3::new(0.0, -50.0, -1.0),
+            starting_direction: Vec2::new(0.5, -0.5),
+            speed: 400.0,
+            size: Vec3::new(30.0, 30.0, 0.),
+        },
+        wall: ParametersWall {
+            thickness: 10,
+            x_left_wall: -600,
+            x_right_wall: 600,
+            y_down_wall: -300,
+            y_up_wall: 300,
+        },
+        brick: ParametersBrick {
+            width: 20,
+            height: 100,
+        },
+        scoreboard: ParametersScoreboard {
+            font_size: 40.0,
+            text_padding: Val::Px(5.0),
+        },
+        colors: ParametersColors {
+            background: Color::rgb(0.9, 0.9, 0.9),
+            paddle: Color::rgb(0.3, 0.3, 0.7),
+            ball: Color::rgb(1.0, 0.5, 0.5),
+            brick: Color::rgb(0.5, 0.5, 1.0),
+            wall: Color::rgb(0.8, 0.8, 0.8),
+            text: Color::rgb(0.5, 0.5, 1.0),
+            score: Color::rgb(1.0, 0.5, 0.5),
+        },
+    };
+
+    let parameters: Parameters = match write_config_to_file_if_not_exists(
+        &parameters,
+        PARAMETERS_FILE_PATH,
+    ) {
+        Err(_) => panic!(
+            "Couldn't write config to file {} that didn't exist!",
+            PARAMETERS_FILE_PATH
+        ),
+        Ok(_) => {
+            let toml_str = fs::read_to_string(PARAMETERS_FILE_PATH)
+                .expect("Failed to read Cargo.toml file, after writing if it didn't exist.");
+            toml::from_str(&toml_str).unwrap_or_else(|_| panic!("Unvalid TOML file structure ({}), delete file and a valid one will be generated.",
+                PARAMETERS_FILE_PATH))
+        }
+    };
+
+    parameters
+}
+
+// Add the game's entities to our world
+fn setup(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+    parameters: Res<Parameters>,
+) {
+    // Camera
+    commands.spawn(Camera2dBundle::default());
+
+    // Sound
+    let ball_collision_sound = asset_server.load("sounds/breakout_collision.ogg");
+    commands.insert_resource(CollisionSound(ball_collision_sound));
+
+    // Paddle
+    let paddle_x_1 =
+        parameters.paddle.left_bound(parameters.as_ref()) + parameters.paddle.width / 2;
+    let paddle_x_2 =
+        parameters.paddle.right_bound(parameters.as_ref()) - parameters.paddle.width / 2;
+
+    commands.spawn((
+        SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(paddle_x_1 as f32, 0.0, 0.0),
+                scale: parameters.paddle.size(),
+                ..default()
+            },
+            sprite: Sprite {
+                color: parameters.colors.paddle,
+                ..default()
+            },
+            ..default()
+        },
+        Paddle,
+        Collider,
+    ));
+    commands.spawn((
+        SpriteBundle {
+            transform: Transform {
+                translation: Vec3::new(paddle_x_2 as f32, 0.0, 0.0),
+                scale: parameters.paddle.size(),
+                ..default()
+            },
+            sprite: Sprite {
+                color: parameters.colors.paddle,
+                ..default()
+            },
+            ..default()
+        },
+        Paddle,
+        Collider,
+    ));
+
+    // Ball
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
+            transform: Transform::from_translation(parameters.ball.starting_position)
+                .with_scale(parameters.ball.size),
+            ..default()
+        },
+        Ball,
+        Velocity(parameters.ball.starting_velocity()),
+    ));
+    /*
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
+            transform: Transform::from_translation(parameters.ball.starting_position)
+                .with_scale(parameters.ball.size),
+            ..default()
+        },
+        Ball,
+        Velocity(parameters.ball.starting_velocity().perp()),
+    ));
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
+            transform: Transform::from_translation(parameters.ball.starting_position)
+                .with_scale(parameters.ball.size),
+            ..default()
+        },
+        Ball,
+        Velocity(parameters.ball.starting_velocity().perp().perp()),
+    ));
+    commands.spawn((
+        MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Circle::default().into()).into(),
+            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
+            transform: Transform::from_translation(parameters.ball.starting_position)
+                .with_scale(parameters.ball.size),
+            ..default()
+        },
+        Ball,
+        Velocity(parameters.ball.starting_velocity().perp().perp().perp()),
+    ));
+    */
+
+    // Scoreboards
+    commands.spawn(
+        TextBundle::from_sections([
+            TextSection::new(
+                "Player 1: ",
+                TextStyle {
+                    font_size: parameters.scoreboard.font_size,
+                    color: parameters.colors.text,
+                    ..default()
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font_size: parameters.scoreboard.font_size,
+                color: parameters.colors.score,
+                ..default()
+            }),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: parameters.scoreboard.text_padding,
+            left: parameters.scoreboard.text_padding,
+            ..default()
+        }),
+    );
+    commands.spawn(
+        TextBundle::from_sections([
+            TextSection::new(
+                "Player 2: ",
+                TextStyle {
+                    font_size: parameters.scoreboard.font_size,
+                    color: parameters.colors.text,
+                    ..default()
+                },
+            ),
+            TextSection::from_style(TextStyle {
+                font_size: parameters.scoreboard.font_size,
+                color: parameters.colors.score,
+                ..default()
+            }),
+        ])
+        .with_style(Style {
+            position_type: PositionType::Absolute,
+            top: parameters.scoreboard.text_padding,
+            right: parameters.scoreboard.text_padding,
+            ..default()
+        }),
+    );
+
+    // Walls
+    commands.spawn(WallBundle::new(WallLocation::Left, parameters.as_ref()));
+    commands.spawn(WallBundle::new(WallLocation::Right, parameters.as_ref()));
+    commands.spawn(WallBundle::new(WallLocation::Down, parameters.as_ref()));
+    commands.spawn(WallBundle::new(WallLocation::Up, parameters.as_ref()));
+
+    // Goal Bricks
+    let minimum_gap_between_bricks_and_vertical_walls = parameters
+        .distribution
+        .minimum_gap_between_bricks_and_vertical_walls;
+    let minimum_gap_between_bricks_and_horizontal_walls = parameters
+        .distribution
+        .minimum_gap_between_bricks_and_horizontal_walls;
+    let minimum_gap_between_bricks_and_paddle = parameters
+        .distribution
+        .minimum_gap_between_paddle_and_goal_bricks;
+
+    let y_border_top_wall = parameters.wall.y_up_wall - parameters.wall.thickness / 2;
+    let y_border_down_wall = parameters.wall.y_down_wall + parameters.wall.thickness / 2;
+    let x_border_left_wall = parameters.wall.x_left_wall + parameters.wall.thickness / 2;
+    let x_border_left_paddle = parameters.paddle.left_bound(parameters.as_ref());
+    let x_border_right_wall = parameters.wall.x_right_wall + parameters.wall.thickness / 2;
+    let x_border_right_paddle = parameters.paddle.right_bound(parameters.as_ref());
+
+    let gap_between_bricks = parameters.distribution.gap_between_bricks;
+    let brick_width = parameters.brick.width;
+    let total_width_of_bricks = (x_border_left_paddle - x_border_left_wall)
+        - minimum_gap_between_bricks_and_vertical_walls
+        - minimum_gap_between_bricks_and_paddle;
+    let brick_height = parameters.brick.height;
+    let total_height_of_bricks = (y_border_top_wall - y_border_down_wall)
+        - 2 * minimum_gap_between_bricks_and_horizontal_walls;
+
+    // Goal bricks left
+    // Given the space available, compute how many rows and columns of bricks we can fit
+    let n_columns =
+        (total_width_of_bricks + gap_between_bricks) / (brick_width + gap_between_bricks);
+    let n_rows =
+        (total_height_of_bricks + gap_between_bricks) / (brick_height + gap_between_bricks);
+    let n_vertical_gaps = n_columns - 1;
+    let n_horizontal_gaps = n_rows - 1;
+
+    // Because we need to round the number of columns,
+    // the space on the top and sides of the bricks only captures a lower bound, not an exact value
+    let x_left_center_of_bricks = (x_border_left_wall + x_border_left_paddle) / 2;
+    let left_left_edge_of_bricks = x_left_center_of_bricks
+        // Space taken up by the bricks
+        - (n_columns as f32 / 2. * brick_width as f32) as i32
+        // Space taken up by the gaps
+        - (n_vertical_gaps as f32 / 2. * gap_between_bricks as f32) as i32;
+    let x_right_center_of_bricks = (x_border_right_wall + x_border_right_paddle) / 2;
+    let right_left_edge_of_bricks = x_right_center_of_bricks
+        // Space taken up by the bricks
+        - (n_columns as f32 / 2. * brick_width as f32) as i32
+        // Space taken up by the gaps
+        - (n_vertical_gaps as f32 / 2. * gap_between_bricks as f32) as i32;
+    let y_left_center_of_bricks = (y_border_top_wall + y_border_down_wall) / 2;
+    let bottom_edge_of_bricks = y_left_center_of_bricks
+        // Space taken up by the bricks
+        - (n_rows as f32 / 2. * brick_height as f32) as i32
+        // Space taken up by the gaps
+        - (n_horizontal_gaps as f32 / 2. * gap_between_bricks as f32) as i32;
+
+    // In Bevy, the `translation` of an entity describes the center point,
+    // not its bottom-left corner
+    let left_offset_x = left_left_edge_of_bricks + brick_width / 2;
+    let offset_y = bottom_edge_of_bricks + brick_height / 2;
+    let right_offset_x = right_left_edge_of_bricks + brick_width / 2;
+
+    for row in 0..n_rows {
+        for column in 0..n_columns {
+            let brick_position = Vec2::new(
+                (left_offset_x + column * (brick_width + gap_between_bricks)) as f32,
+                (offset_y + row * (brick_height + gap_between_bricks)) as f32,
+            );
+
+            // brick
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: parameters.colors.brick,
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: brick_position.extend(0.0),
+                        scale: parameters.brick.size(),
+                        ..default()
+                    },
+                    ..default()
+                },
+                Brick,
+                Collider,
+            ));
+        }
+    }
+
+    for row in 0..n_rows {
+        for column in 0..n_columns {
+            let brick_position = Vec2::new(
+                (right_offset_x + column * (brick_width + gap_between_bricks)) as f32,
+                (offset_y + row * (brick_height + gap_between_bricks)) as f32,
+            );
+
+            // brick
+            commands.spawn((
+                SpriteBundle {
+                    sprite: Sprite {
+                        color: parameters.colors.brick,
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: brick_position.extend(0.0),
+                        scale: parameters.brick.size(),
+                        ..default()
+                    },
+                    ..default()
+                },
+                Brick,
+                Collider,
+            ));
+        }
+    }
+}
+
+fn move_paddles(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<&mut Transform, With<Paddle>>,
+    time: Res<Time>,
+    parameters: Res<Parameters>,
+) {
+    for (i, mut paddle_transform) in query.iter_mut().enumerate() {
+        if i >= parameters.players.len() {
+            break;
+        }
+        let mut delta: Option<Vec3> = None;
+        for this_move in parameters.players.iter().flat_map(|x| &x.moves) {
+            if let Effect::Move(direction) = this_move.effect {
+                if keyboard_input.pressed(this_move.key.clone().into()) {
+                    delta = match delta {
+                        Some(delta) => Some(delta + direction),
+                        None => Some(direction),
+                    }
+                }
+            }
+        }
+        if let Some(delta) = delta {
+            // Calculate the new horizontal paddle position based on player input
+            let new_paddle_position = paddle_transform.translation
+                + delta.normalize_or_zero() * parameters.paddle.speed * time.delta_seconds();
+
+            // Update the paddle position,
+            // making sure it doesn't cause the paddle to leave the arena
+            paddle_transform.translation = new_paddle_position.clamp(
+                parameters.paddle.neg_bounds(parameters.as_ref()),
+                parameters.paddle.pos_bounds(parameters.as_ref()),
+            );
+        }
+    }
+}
+
+fn update_velocity(mut query: Query<&mut Velocity>, speed: Res<Speed>) {
+    for mut velocity in &mut query {
+        velocity.as_mut().0 = velocity.normalize() * speed.0;
+    }
+}
+
+fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
+    for (mut transform, velocity) in &mut query {
+        transform.translation.x += velocity.x * time.delta_seconds();
+        transform.translation.y += velocity.y * time.delta_seconds();
+    }
+}
+
+fn update_scoreboards(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+    for (i, mut text) in query.iter_mut().enumerate() {
+        if let Some(score) = scoreboard.scores.get(i) {
+            text.sections[1].value = score.to_string();
+        }
+    }
+}
+
+fn check_for_collisions(
+    mut commands: Commands,
+    mut scoreboard: ResMut<Scoreboard>,
+    mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
+    collider_query: Query<(Entity, &Transform, Option<&Brick>, Option<&Wall>), With<Collider>>,
+    mut collision_events: EventWriter<CollisionEvent>,
+    parameters: Res<Parameters>,
+    mut speed: ResMut<Speed>,
+) {
+    for (mut ball_velocity, ball_transform) in ball_query.iter_mut() {
+        let ball_size = ball_transform.scale.truncate();
+
+        // check collision with walls
+        for (collider_entity, transform, maybe_brick, maybe_wall) in &collider_query {
+            let collision = collide(
+                ball_transform.translation,
+                ball_size,
+                transform.translation,
+                transform.scale.truncate(),
+            );
+            if let Some(collision) = collision {
+                if speed.0 < 1000. {
+                    speed.0 *= 1.01;
+                }
+
+                // Sends a collision event so that other systems can react to the collision
+                collision_events.send_default();
+
+                if let Some(Wall(wall_hit)) = maybe_wall {
+                    for (i, _wall) in parameters
+                        .players
+                        .iter()
+                        .map(|x| &x.wall_that_gives_points)
+                        .enumerate()
+                    {
+                        if wall_hit == _wall {
+                            if let Some(scoreboard) = scoreboard.scores.get_mut(i) {
+                                *scoreboard += 1;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                // Bricks should be despawned and increment the scoreboard on collision
+                if maybe_brick.is_some() {
+                    commands.entity(collider_entity).despawn();
+                }
+
+                // reflect the ball when it collides
+                let mut reflect_x = false;
+                let mut reflect_y = false;
+
+                // only reflect if the ball's velocity is going in the opposite direction of the
+                // collision
+                match collision {
+                    Collision::Left => reflect_x = ball_velocity.x > 0.0,
+                    Collision::Right => reflect_x = ball_velocity.x < 0.0,
+                    Collision::Top => reflect_y = ball_velocity.y < 0.0,
+                    Collision::Bottom => reflect_y = ball_velocity.y > 0.0,
+                    Collision::Inside => { /* do nothing */ }
+                }
+
+                // reflect velocity on the x-axis if we hit something on the x-axis
+                if reflect_x {
+                    ball_velocity.x = -ball_velocity.x;
+                }
+
+                // reflect velocity on the y-axis if we hit something on the y-axis
+                if reflect_y {
+                    ball_velocity.y = -ball_velocity.y;
+                }
+            }
+        }
+    }
+}
+
+fn play_collision_sound(
+    mut commands: Commands,
+    mut collision_events: EventReader<CollisionEvent>,
+    sound: Res<CollisionSound>,
+) {
+    // Play a sound once per frame if a collision occurred.
+    if !collision_events.is_empty() {
+        // This prevents events staying active on the next frame.
+        collision_events.clear();
+        commands.spawn(AudioBundle {
+            source: sound.0.clone(),
+            // auto-despawn the entity when playback finishes
+            settings: PlaybackSettings::DESPAWN,
+        });
+    }
+}

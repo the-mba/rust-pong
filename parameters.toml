@@ -1,0 +1,94 @@
+[players]
+number_of_players = 2
+
+[players.player_1]
+wall_that_gives_points = "Right"
+
+[players.player_2]
+wall_that_gives_points = "Left"
+
+[paddle]
+width = 20
+height = 120
+speed = 500.0
+
+[distribution]
+gap_between_paddle_and_side_wall = 100
+gap_between_paddle_and_horizontal_wall = 10
+minimum_gap_between_paddle_and_goal_bricks = 20
+gap_between_bricks = 5
+minimum_gap_between_bricks_and_horizontal_walls = 20
+minimum_gap_between_bricks_and_vertical_walls = 40
+
+[controls]
+up_direction = [0.0, 1.0, 0.0]
+down_direction = [0.0, -1.0, 0.0]
+player_1_up_key = "Q"
+player_1_down_key = "A"
+player_2_up_key = "O"
+player_2_down_key = "L"
+
+[ball]
+starting_position = [0.0, -50.0, -1.0]
+starting_direction = [0.5, -0.5]
+speed = 400.0
+size = [30.0, 30.0, 0.0]
+
+[wall]
+thickness = 10
+x_left_wall = -600
+x_right_wall = 600
+y_down_wall = -300
+y_up_wall = 300
+
+[brick]
+width = 20
+height = 100
+
+[scoreboard]
+font_size = 40.0
+
+[scoreboard.text_padding]
+Px = 5.0
+
+[colors.background.Rgba]
+red = 0.8999999761581421
+green = 0.8999999761581421
+blue = 0.8999999761581421
+alpha = 1.0
+
+[colors.paddle.Rgba]
+red = 0.30000001192092896
+green = 0.30000001192092896
+blue = 0.699999988079071
+alpha = 1.0
+
+[colors.ball.Rgba]
+red = 1.0
+green = 0.5
+blue = 0.5
+alpha = 1.0
+
+[colors.brick.Rgba]
+red = 0.5
+green = 0.5
+blue = 1.0
+alpha = 1.0
+
+[colors.wall.Rgba]
+red = 0.800000011920929
+green = 0.800000011920929
+blue = 0.800000011920929
+alpha = 1.0
+
+[colors.text.Rgba]
+red = 0.5
+green = 0.5
+blue = 1.0
+alpha = 1.0
+
+[colors.score.Rgba]
+red = 1.0
+green = 0.5
+blue = 0.5
+alpha = 1.0
