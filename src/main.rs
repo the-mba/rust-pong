@@ -3,7 +3,7 @@
 pub mod parameters;
 use parameters::*;
 pub mod types;
-use types::*;
+use types::*;s
 
 use bevy::{
     prelude::*,
