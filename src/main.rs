@@ -21,16 +21,16 @@ use toml::to_string;
 const PARAMETERS_FILE_PATH: &str = "parameters.toml";
 
 fn main() {
-    let parameters = config();
-    let parameters_clone = parameters.clone();
+    let parameters = config(); /*
+                               let parameters_clone = parameters.clone();
 
-    let (tx, rx) = mpsc::channel::<MyKeyCode>();
-    thread::spawn(move || bot(parameters_clone, tx));
+                               let (tx, rx) = mpsc::channel::<MyKeyCode>();
+                               thread::spawn(move || bot(parameters_clone, tx));
 
-    let received = rx.recv().unwrap();
-    if let MyKeyCode::A = received {
-        println!("Got: A!!");
-    }
+                               let received = rx.recv().unwrap();
+                               if let MyKeyCode::A = received {
+                                   println!("Got: A!!");
+                               } */
 
     App::new()
         .add_plugins(DefaultPlugins)
