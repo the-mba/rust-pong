@@ -102,18 +102,6 @@ impl WallLocation {
     }
 }
 
-impl std::fmt::Display for WallLocation {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        let name = match self {
-            WallLocation::Down => "Down",
-            WallLocation::Left => "Left",
-            WallLocation::Right => "Right",
-            WallLocation::Up => "Up",
-        };
-        write!(f, "{}", name)
-    }
-}
-
 // This resource tracks the game's score
 #[derive(Resource)]
 pub struct Scoreboard {

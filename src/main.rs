@@ -4,16 +4,12 @@ pub mod parameters;
 use parameters::*;
 pub mod types;
 use types::*;
-pub mod bot;
-use bot::*;
 
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
 };
-use std::sync::mpsc;
-use std::thread;
 use std::{fs, io::Write};
 use std::{fs::File, path::Path};
 use toml::to_string;
@@ -21,16 +17,7 @@ use toml::to_string;
 const PARAMETERS_FILE_PATH: &str = "parameters.toml";
 
 fn main() {
-    let parameters = config(); /*
-                               let parameters_clone = parameters.clone();
-
-                               let (tx, rx) = mpsc::channel::<MyKeyCode>();
-                               thread::spawn(move || bot(parameters_clone, tx));
-
-                               let received = rx.recv().unwrap();
-                               if let MyKeyCode::A = received {
-                                   println!("Got: A!!");
-                               } */
+    let parameters = config();
 
     App::new()
         .add_plugins(DefaultPlugins)
