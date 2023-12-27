@@ -435,6 +435,7 @@ pub struct ParametersBall {
     pub speed: f32,
     pub size: Vec3,
     pub probability_to_duplicate: f32,
+    pub padding_for_bounds: f32,
 }
 
 impl ParametersBall {

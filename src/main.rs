@@ -106,6 +106,7 @@ fn parameters_from_toml() -> Parameters {
             speed: 400.0,
             size: Vec3::new(30.0, 30.0, 0.),
             probability_to_duplicate: 0.1,
+            padding_for_bounds: 0.1,
         },
         wall: ParametersWall {
             thickness: 10,
