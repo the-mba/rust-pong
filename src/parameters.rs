@@ -433,6 +433,7 @@ pub struct ParametersBall {
     pub starting_position: Vec3,
     pub starting_direction: Vec2,
     pub speed: f32,
+    pub max_speed: f32,
     pub size: Vec3,
     pub probability_to_duplicate: f32,
     pub padding_for_bounds: f32,
@@ -456,15 +457,15 @@ impl ParametersBall {
     }
     pub fn neg_bounds(&self, parameters: &Parameters) -> Vec3 {
         Vec3::new(
-            self.left_bound(parameters) as f32 - 1.0,
-            self.down_bound(parameters) as f32 - 1.0,
+            self.left_bound(parameters) as f32 - self.padding_for_bounds,
+            self.down_bound(parameters) as f32 - self.padding_for_bounds,
             0.,
         )
     }
     pub fn pos_bounds(&self, parameters: &Parameters) -> Vec3 {
         Vec3::new(
-            self.right_bound(parameters) as f32 + 1.0,
-            self.up_bound(parameters) as f32 + 1.0,
+            self.right_bound(parameters) as f32 + self.padding_for_bounds,
+            self.up_bound(parameters) as f32 + self.padding_for_bounds,
             0.,
         )
     }

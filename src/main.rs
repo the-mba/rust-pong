@@ -96,7 +96,7 @@ fn parameters_from_toml() -> Parameters {
             gap_between_paddle_and_side_wall: 100,
             gap_between_paddle_and_horizontal_wall: 10,
             minimum_gap_between_paddle_and_goal_bricks: 20,
-            gap_between_bricks: 5,
+            gap_between_bricks: 1,
             minimum_gap_between_bricks_and_horizontal_walls: 20,
             minimum_gap_between_bricks_and_vertical_walls: 40,
         },
@@ -104,6 +104,7 @@ fn parameters_from_toml() -> Parameters {
             starting_position: Vec3::new(0.0, -50.0, -1.0),
             starting_direction: Vec2::new(0.5, -0.5),
             speed: 400.0,
+            max_speed: 2000.,
             size: Vec3::new(30.0, 30.0, 0.),
             probability_to_duplicate: 0.1,
             padding_for_bounds: 0.1,
@@ -481,7 +482,7 @@ fn check_for_collisions(
                 transform.scale.truncate(),
             );
             if let Some(collision) = collision {
-                if speed.0 < 1000. {
+                if speed.0 < parameters.ball.max_speed {
                     speed.0 *= 1.01;
                 }
 
@@ -540,11 +541,14 @@ fn check_for_collisions(
                         MaterialMesh2dBundle {
                             mesh: meshes.add(shape::Circle::default().into()).into(),
                             material: materials.add(ColorMaterial::from(parameters.colors.ball)),
-                            transform: (*transform).with_scale(parameters.ball.size),
+                            transform: Transform::from_translation(
+                                parameters.ball.starting_position,
+                            )
+                            .with_scale(parameters.ball.size),
                             ..default()
                         },
                         Ball,
-                        Velocity(Vec2::new(ball_velocity.x, -ball_velocity.y)),
+                        Velocity(ball_velocity.as_ref().0),
                     ));
                 }
             }
