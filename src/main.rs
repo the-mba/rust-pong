@@ -5,22 +5,25 @@ use parameters::*;
 pub mod types;
 use types::*;
 
+use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
 };
-use std::{fs, io::Write};
+use std::{fs, io::Write, iter::zip};
 use std::{fs::File, path::Path};
 use toml::to_string;
 
 const PARAMETERS_FILE_PATH: &str = "parameters.toml";
+const ALWAYS_REWRITE_TOML: bool = true;
 
 fn main() {
-    let parameters = config();
+    let parameters = parameters_from_toml();
 
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(FrameTimeDiagnosticsPlugin)
         .insert_resource(Scoreboard {
             scores: vec![0; parameters.players.len()],
         })
@@ -47,12 +50,12 @@ fn main() {
         .run();
 }
 
-fn config() -> Parameters {
+fn parameters_from_toml() -> Parameters {
     fn write_config_to_file_if_not_exists(
         config: &Parameters,
         file_path: &str,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if Path::new(file_path).exists() {
+        if !ALWAYS_REWRITE_TOML && Path::new(file_path).exists() {
             return Ok(());
         }
         let toml_string = to_string(config)?;
@@ -71,14 +74,14 @@ fn config() -> Parameters {
                 wall_that_gives_points: WallLocation::Right,
                 moves: vec![
                     Control::new(MyKeyCode::Q, Effect::Move(up_direction)),
-                    Control::new(MyKeyCode::A, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::A, Effect::Move(down_direction)),
                 ],
             },
             ParametersPlayer {
                 wall_that_gives_points: WallLocation::Left,
                 moves: vec![
                     Control::new(MyKeyCode::O, Effect::Move(up_direction)),
-                    Control::new(MyKeyCode::L, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::L, Effect::Move(down_direction)),
                 ],
             },
         ],
@@ -102,6 +105,7 @@ fn config() -> Parameters {
             starting_direction: Vec2::new(0.5, -0.5),
             speed: 400.0,
             size: Vec3::new(30.0, 30.0, 0.),
+            probability_to_duplicate: 0.1,
         },
         wall: ParametersWall {
             thickness: 10,
@@ -111,8 +115,8 @@ fn config() -> Parameters {
             y_up_wall: 300,
         },
         brick: ParametersBrick {
-            width: 20,
-            height: 100,
+            width: 5,   // was 20
+            height: 10, // was 100
         },
         scoreboard: ParametersScoreboard {
             font_size: 40.0,
@@ -214,41 +218,6 @@ fn setup(
         Ball,
         Velocity(parameters.ball.starting_velocity()),
     ));
-    /*
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::default().into()).into(),
-            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
-            transform: Transform::from_translation(parameters.ball.starting_position)
-                .with_scale(parameters.ball.size),
-            ..default()
-        },
-        Ball,
-        Velocity(parameters.ball.starting_velocity().perp()),
-    ));
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::default().into()).into(),
-            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
-            transform: Transform::from_translation(parameters.ball.starting_position)
-                .with_scale(parameters.ball.size),
-            ..default()
-        },
-        Ball,
-        Velocity(parameters.ball.starting_velocity().perp().perp()),
-    ));
-    commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Circle::default().into()).into(),
-            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
-            transform: Transform::from_translation(parameters.ball.starting_position)
-                .with_scale(parameters.ball.size),
-            ..default()
-        },
-        Ball,
-        Velocity(parameters.ball.starting_velocity().perp().perp().perp()),
-    ));
-    */
 
     // Scoreboards
     commands.spawn(
@@ -428,12 +397,9 @@ fn move_paddles(
     time: Res<Time>,
     parameters: Res<Parameters>,
 ) {
-    for (i, mut paddle_transform) in query.iter_mut().enumerate() {
-        if i >= parameters.players.len() {
-            break;
-        }
+    for (mut paddle_transform, player) in zip(query.iter_mut(), &parameters.players) {
         let mut delta: Option<Vec3> = None;
-        for this_move in parameters.players.iter().flat_map(|x| &x.moves) {
+        for this_move in &player.moves {
             if let Effect::Move(direction) = this_move.effect {
                 if keyboard_input.pressed(this_move.key.clone().into()) {
                     delta = match delta {
@@ -464,10 +430,20 @@ fn update_velocity(mut query: Query<&mut Velocity>, speed: Res<Speed>) {
     }
 }
 
-fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
-    for (mut transform, velocity) in &mut query {
+fn apply_velocity(
+    mut query: Query<(&mut Transform, &Velocity, Option<&Ball>)>,
+    time: Res<Time>,
+    parameters: Res<Parameters>,
+) {
+    for (mut transform, velocity, maybe_ball) in &mut query {
         transform.translation.x += velocity.x * time.delta_seconds();
         transform.translation.y += velocity.y * time.delta_seconds();
+        if maybe_ball.is_some() {
+            transform.translation = transform.translation.clamp(
+                parameters.ball.neg_bounds(parameters.as_ref()),
+                parameters.ball.pos_bounds(parameters.as_ref()),
+            );
+        }
     }
 }
 
@@ -479,6 +455,8 @@ fn update_scoreboards(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) 
     }
 }
 
+#[allow(clippy::too_many_arguments)]
+#[allow(clippy::type_complexity)]
 fn check_for_collisions(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboard>,
@@ -487,6 +465,8 @@ fn check_for_collisions(
     mut collision_events: EventWriter<CollisionEvent>,
     parameters: Res<Parameters>,
     mut speed: ResMut<Speed>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     for (mut ball_velocity, ball_transform) in ball_query.iter_mut() {
         let ball_size = ball_transform.scale.truncate();
@@ -550,6 +530,21 @@ fn check_for_collisions(
                 // reflect velocity on the y-axis if we hit something on the y-axis
                 if reflect_y {
                     ball_velocity.y = -ball_velocity.y;
+                }
+
+                if maybe_brick.is_some()
+                    && rand::random::<f32>() < parameters.ball.probability_to_duplicate
+                {
+                    commands.spawn((
+                        MaterialMesh2dBundle {
+                            mesh: meshes.add(shape::Circle::default().into()).into(),
+                            material: materials.add(ColorMaterial::from(parameters.colors.ball)),
+                            transform: (*transform).with_scale(parameters.ball.size),
+                            ..default()
+                        },
+                        Ball,
+                        Velocity(Vec2::new(ball_velocity.x, -ball_velocity.y)),
+                    ));
                 }
             }
         }

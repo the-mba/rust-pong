@@ -38,30 +38,30 @@ impl ParametersPaddle {
     pub fn left_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.x_left_wall
             + parameters.wall.thickness / 2
-            + self.width / 2
             + parameters.distribution.gap_between_paddle_and_side_wall
+            + self.width / 2
     }
     pub fn right_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.x_right_wall
             - parameters.wall.thickness / 2
-            - self.width / 2
             - parameters.distribution.gap_between_paddle_and_side_wall
+            - self.width / 2
     }
     pub fn down_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.y_down_wall
             + parameters.wall.thickness / 2
-            + self.height / 2
             + parameters
                 .distribution
                 .gap_between_paddle_and_horizontal_wall
+            + self.height / 2
     }
     pub fn up_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.y_up_wall
             - parameters.wall.thickness / 2
-            - self.height / 2
             - parameters
                 .distribution
                 .gap_between_paddle_and_horizontal_wall
+            - self.height / 2
     }
     pub fn neg_bounds(&self, parameters: &Parameters) -> Vec3 {
         Vec3::new(
@@ -91,7 +91,7 @@ pub struct ParametersDistribution {
     pub minimum_gap_between_bricks_and_vertical_walls: i32,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub enum MyKeyCode {
     Key1,
     Key2,
@@ -434,11 +434,38 @@ pub struct ParametersBall {
     pub starting_direction: Vec2,
     pub speed: f32,
     pub size: Vec3,
+    pub probability_to_duplicate: f32,
 }
 
 impl ParametersBall {
     pub fn starting_velocity(&self) -> Vec2 {
         self.starting_direction.normalize() * self.speed
+    }
+    pub fn left_bound(&self, parameters: &Parameters) -> i32 {
+        parameters.wall.x_left_wall + parameters.wall.thickness / 2 + self.size.x as i32 / 2
+    }
+    pub fn right_bound(&self, parameters: &Parameters) -> i32 {
+        parameters.wall.x_right_wall - parameters.wall.thickness / 2 - self.size.x as i32 / 2
+    }
+    pub fn down_bound(&self, parameters: &Parameters) -> i32 {
+        parameters.wall.y_down_wall + parameters.wall.thickness / 2 + self.size.y as i32 / 2
+    }
+    pub fn up_bound(&self, parameters: &Parameters) -> i32 {
+        parameters.wall.y_up_wall - parameters.wall.thickness / 2 - self.size.y as i32 / 2
+    }
+    pub fn neg_bounds(&self, parameters: &Parameters) -> Vec3 {
+        Vec3::new(
+            self.left_bound(parameters) as f32 - 1.0,
+            self.down_bound(parameters) as f32 - 1.0,
+            0.,
+        )
+    }
+    pub fn pos_bounds(&self, parameters: &Parameters) -> Vec3 {
+        Vec3::new(
+            self.right_bound(parameters) as f32 + 1.0,
+            self.up_bound(parameters) as f32 + 1.0,
+            0.,
+        )
     }
 }
 
