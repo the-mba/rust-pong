@@ -1,10 +1,117 @@
+use crate::types::*;
+
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::{fs, io::Write};
+use std::{fs::File, path::Path};
+use toml::to_string;
 
-use crate::types::{Control, WallLocation};
+const PARAMETERS_FILE_PATH: &str = "parameters.toml";
+const ALWAYS_REWRITE_TOML: bool = true;
 
-// These constants are defined in `Transform` units.
-// Using the default 2D camera they correspond 1:1 with screen pixels.
+pub fn parameters_from_toml() -> Parameters {
+    fn write_config_to_file_if_not_exists(
+        config: &Parameters,
+        file_path: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if !ALWAYS_REWRITE_TOML && Path::new(file_path).exists() {
+            return Ok(());
+        }
+        let toml_string = to_string(config)?;
+        let mut file = File::create(file_path)?;
+        file.write_all(toml_string.as_bytes())?;
+        println!("Config file created successfully.");
+        Ok(())
+    }
+
+    let up_direction = Vec3::new(0., 1., 0.);
+    let down_direction = Vec3::new(0., -1., 0.);
+
+    let parameters = Parameters {
+        players: vec![
+            ParametersPlayer {
+                wall_that_gives_points: WallLocation::Right,
+                moves: vec![
+                    Control::new(MyKeyCode::Q, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::A, Effect::Move(down_direction)),
+                ],
+            },
+            ParametersPlayer {
+                wall_that_gives_points: WallLocation::Left,
+                moves: vec![
+                    Control::new(MyKeyCode::O, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::L, Effect::Move(down_direction)),
+                ],
+            },
+        ],
+        paddle: ParametersPaddle {
+            width: 20,
+            height: 120,
+            speed: 500.,
+        },
+        distribution: ParametersDistribution {
+            up_direction,
+            down_direction,
+            gap_between_paddle_and_side_wall: 100,
+            gap_between_paddle_and_horizontal_wall: 10,
+            minimum_gap_between_paddle_and_goal_bricks: 20,
+            gap_between_bricks: 1,
+            minimum_gap_between_bricks_and_horizontal_walls: 20,
+            minimum_gap_between_bricks_and_vertical_walls: 40,
+        },
+        ball: ParametersBall {
+            starting_position: Vec3::new(0.0, -50.0, -1.0),
+            starting_direction: Vec2::new(0.5, -0.5),
+            speed: 400.0,
+            max_speed: 2000.,
+            size: Vec3::new(30.0, 30.0, 0.),
+            probability_to_duplicate: 0.1,
+            padding_for_bounds: 0.1,
+        },
+        wall: ParametersWall {
+            thickness: 10,
+            x_left_wall: -600,
+            x_right_wall: 600,
+            y_down_wall: -300,
+            y_up_wall: 300,
+        },
+        brick: ParametersBrick {
+            width: 5,   // was 20
+            height: 10, // was 100
+        },
+        scoreboard: ParametersScoreboard {
+            font_size: 40.0,
+            text_padding: Val::Px(5.0),
+        },
+        colors: ParametersColors {
+            background: Color::rgb(0.9, 0.9, 0.9),
+            paddle: Color::rgb(0.3, 0.3, 0.7),
+            ball: Color::rgb(1.0, 0.5, 0.5),
+            brick: Color::rgb(0.5, 0.5, 1.0),
+            wall: Color::rgb(0.8, 0.8, 0.8),
+            text: Color::rgb(0.5, 0.5, 1.0),
+            score: Color::rgb(1.0, 0.5, 0.5),
+        },
+    };
+
+    let parameters: Parameters = match write_config_to_file_if_not_exists(
+        &parameters,
+        PARAMETERS_FILE_PATH,
+    ) {
+        Err(_) => panic!(
+            "Couldn't write config to file {} that didn't exist!",
+            PARAMETERS_FILE_PATH
+        ),
+        Ok(_) => {
+            let toml_str = fs::read_to_string(PARAMETERS_FILE_PATH)
+                .expect("Failed to read Cargo.toml file, after writing if it didn't exist.");
+            toml::from_str(&toml_str).unwrap_or_else(|_| panic!("Unvalid TOML file structure ({}), delete file and a valid one will be generated.",
+                PARAMETERS_FILE_PATH))
+        }
+    };
+
+    parameters
+}
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Parameters {
@@ -433,6 +540,7 @@ pub struct ParametersBall {
     pub starting_position: Vec3,
     pub starting_direction: Vec2,
     pub speed: f32,
+    pub max_speed: f32,
     pub size: Vec3,
     pub probability_to_duplicate: f32,
     pub padding_for_bounds: f32,
@@ -456,15 +564,15 @@ impl ParametersBall {
     }
     pub fn neg_bounds(&self, parameters: &Parameters) -> Vec3 {
         Vec3::new(
-            self.left_bound(parameters) as f32 - 1.0,
-            self.down_bound(parameters) as f32 - 1.0,
+            self.left_bound(parameters) as f32 - self.padding_for_bounds,
+            self.down_bound(parameters) as f32 - self.padding_for_bounds,
             0.,
         )
     }
     pub fn pos_bounds(&self, parameters: &Parameters) -> Vec3 {
         Vec3::new(
-            self.right_bound(parameters) as f32 + 1.0,
-            self.up_bound(parameters) as f32 + 1.0,
+            self.right_bound(parameters) as f32 + self.padding_for_bounds,
+            self.up_bound(parameters) as f32 + self.padding_for_bounds,
             0.,
         )
     }
