@@ -15,9 +15,6 @@ pub enum Level {
 }
 
 #[derive(Component)]
-pub struct Player(ParametersPlayer);
-
-#[derive(Component)]
 pub struct Ball;
 
 #[derive(Component, Deref, DerefMut, Debug)]

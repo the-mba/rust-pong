@@ -66,38 +66,24 @@ fn setup(
     let paddle_x_2 =
         parameters.paddle.right_bound(parameters.as_ref()) - parameters.paddle.width / 2;
 
-    commands.spawn((
-        SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(paddle_x_1 as f32, 0.0, 0.0),
-                scale: parameters.paddle.size(),
+    for player in &parameters.players {
+        commands.spawn((
+            SpriteBundle {
+                transform: Transform {
+                    translation: Vec3::new(paddle_x_1 as f32, 0.0, 0.0),
+                    scale: parameters.paddle.size(),
+                    ..default()
+                },
+                sprite: Sprite {
+                    color: parameters.colors.paddle,
+                    ..default()
+                },
                 ..default()
             },
-            sprite: Sprite {
-                color: parameters.colors.paddle,
-                ..default()
-            },
-            ..default()
-        },
-        Player,
-        Collider,
-    ));
-    commands.spawn((
-        SpriteBundle {
-            transform: Transform {
-                translation: Vec3::new(paddle_x_2 as f32, 0.0, 0.0),
-                scale: parameters.paddle.size(),
-                ..default()
-            },
-            sprite: Sprite {
-                color: parameters.colors.paddle,
-                ..default()
-            },
-            ..default()
-        },
-        Player,
-        Collider,
-    ));
+            player.clone(),
+            Collider,
+        ));
+    }
 
     // Ball
     commands.spawn((

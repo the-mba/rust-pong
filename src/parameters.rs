@@ -9,6 +9,11 @@ use toml::to_string;
 const PARAMETERS_FILE_PATH: &str = "parameters.toml";
 const ALWAYS_REWRITE_TOML: bool = true;
 
+pub fn wrong_toml(reason: &str) {
+    panic!("Unvalid TOML file structure [{path}] ({reason}), delete file and a valid one will be generated.",
+                path=PARAMETERS_FILE_PATH, reason=reason)
+}
+
 pub fn parameters_from_toml() -> Parameters {
     fn write_config_to_file_if_not_exists(
         config: &Parameters,
@@ -29,14 +34,14 @@ pub fn parameters_from_toml() -> Parameters {
 
     let parameters = Parameters {
         players: vec![
-            ParametersPlayer {
+            Player {
                 wall_that_gives_points: WallLocation::Right,
                 moves: vec![
                     Control::new(MyKeyCode::Q, Effect::Move(up_direction)),
                     Control::new(MyKeyCode::A, Effect::Move(down_direction)),
                 ],
             },
-            ParametersPlayer {
+            Player {
                 wall_that_gives_points: WallLocation::Left,
                 moves: vec![
                     Control::new(MyKeyCode::O, Effect::Move(up_direction)),
@@ -115,7 +120,7 @@ pub fn parameters_from_toml() -> Parameters {
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Parameters {
-    pub players: Vec<ParametersPlayer>,
+    pub players: Vec<Player>,
     pub paddle: ParametersPaddle,
     pub distribution: ParametersDistribution,
     pub ball: ParametersBall,
@@ -125,8 +130,8 @@ pub struct Parameters {
     pub colors: ParametersColors,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ParametersPlayer {
+#[derive(Clone, Serialize, Deserialize, Component)]
+pub struct Player {
     pub wall_that_gives_points: WallLocation,
     pub moves: Vec<Control>,
 }
