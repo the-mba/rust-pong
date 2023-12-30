@@ -1,8 +1,21 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum AppStates {
+    #[default]
+    Menu,
+    Game(Level),
+}
+
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+pub enum Level {
+    #[default]
+    Level1,
+}
+
 #[derive(Component)]
-pub struct Paddle;
+pub struct Player(ParametersPlayer);
 
 #[derive(Component)]
 pub struct Ball;

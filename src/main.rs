@@ -79,7 +79,7 @@ fn setup(
             },
             ..default()
         },
-        Paddle,
+        Player,
         Collider,
     ));
     commands.spawn((
@@ -95,7 +95,7 @@ fn setup(
             },
             ..default()
         },
-        Paddle,
+        Player,
         Collider,
     ));
 
@@ -286,7 +286,7 @@ fn setup(
 
 fn move_paddles(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Transform, With<Paddle>>,
+    mut query: Query<&mut Transform, With<Player>>,
     time: Res<Time>,
     parameters: Res<Parameters>,
 ) {
