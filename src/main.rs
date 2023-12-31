@@ -51,7 +51,6 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
-    parameters: Res<Parameters>,
 ) {
     // Camera
     commands.spawn(Camera2dBundle::default());
@@ -274,7 +273,6 @@ fn move_paddles(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<&mut Transform, With<Player>>,
     time: Res<Time>,
-    parameters: Res<Parameters>,
 ) {
     for (mut paddle_transform, player) in zip(query.iter_mut(), &parameters.players) {
         let mut delta: Option<Vec3> = None;
@@ -309,11 +307,7 @@ fn update_velocity(mut query: Query<&mut Velocity>, speed: Res<Speed>) {
     }
 }
 
-fn apply_velocity(
-    mut query: Query<(&mut Transform, &Velocity, Option<&Ball>)>,
-    time: Res<Time>,
-    parameters: Res<Parameters>,
-) {
+fn apply_velocity(mut query: Query<(&mut Transform, &Velocity, Option<&Ball>)>, time: Res<Time>) {
     for (mut transform, velocity, maybe_ball) in &mut query {
         transform.translation.x += velocity.x * time.delta_seconds();
         transform.translation.y += velocity.y * time.delta_seconds();
@@ -342,7 +336,6 @@ fn check_for_collisions(
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>, Option<&Wall>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
-    parameters: Res<Parameters>,
     mut speed: ResMut<Speed>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
