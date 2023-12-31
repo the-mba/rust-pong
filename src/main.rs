@@ -19,6 +19,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(FrameTimeDiagnosticsPlugin)
+        .add_state::<AppStates>()
+        .add_systems(OnEnter(AppState::Menu), setup_menu)
         .insert_resource(Scoreboard {
             scores: vec![0; parameters.players.len()],
         })
@@ -33,7 +35,7 @@ fn main() {
             FixedUpdate,
             (
                 apply_velocity,
-                move_paddles,
+                move_players,
                 check_for_collisions,
                 play_collision_sound,
                 update_velocity,
@@ -52,6 +54,8 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
+    let parameters = parameters_from_toml();
+
     // Camera
     commands.spawn(Camera2dBundle::default());
 
@@ -60,10 +64,8 @@ fn setup(
     commands.insert_resource(CollisionSound(ball_collision_sound));
 
     // Paddle
-    let paddle_x_1 =
-        parameters.paddle.left_bound(parameters.as_ref()) + parameters.paddle.width / 2;
-    let paddle_x_2 =
-        parameters.paddle.right_bound(parameters.as_ref()) - parameters.paddle.width / 2;
+    let paddle_x_1 = parameters.paddle.left_bound(&parameters) + parameters.paddle.width / 2;
+    let paddle_x_2 = parameters.paddle.right_bound(&parameters) - parameters.paddle.width / 2;
 
     for player in &parameters.players {
         commands.spawn((
@@ -146,30 +148,29 @@ fn setup(
     );
 
     // Walls
-    commands.spawn(WallBundle::new(WallLocation::Left, parameters.as_ref()));
-    commands.spawn(WallBundle::new(WallLocation::Right, parameters.as_ref()));
-    commands.spawn(WallBundle::new(WallLocation::Down, parameters.as_ref()));
-    commands.spawn(WallBundle::new(WallLocation::Up, parameters.as_ref()));
+    commands.spawn(WallBundle::new(WallLocation::Left, &parameters));
+    commands.spawn(WallBundle::new(WallLocation::Right, &parameters));
+    commands.spawn(WallBundle::new(WallLocation::Down, &parameters));
+    commands.spawn(WallBundle::new(WallLocation::Up, &parameters));
 
     // Goal Bricks
     let minimum_gap_between_bricks_and_vertical_walls = parameters
-        .distribution
+        .misc
         .minimum_gap_between_bricks_and_vertical_walls;
     let minimum_gap_between_bricks_and_horizontal_walls = parameters
-        .distribution
+        .misc
         .minimum_gap_between_bricks_and_horizontal_walls;
-    let minimum_gap_between_bricks_and_paddle = parameters
-        .distribution
-        .minimum_gap_between_paddle_and_goal_bricks;
+    let minimum_gap_between_bricks_and_paddle =
+        parameters.misc.minimum_gap_between_paddle_and_goal_bricks;
 
     let y_border_top_wall = parameters.wall.y_up_wall - parameters.wall.thickness / 2;
     let y_border_down_wall = parameters.wall.y_down_wall + parameters.wall.thickness / 2;
     let x_border_left_wall = parameters.wall.x_left_wall + parameters.wall.thickness / 2;
-    let x_border_left_paddle = parameters.paddle.left_bound(parameters.as_ref());
+    let x_border_left_paddle = parameters.paddle.left_bound(&parameters);
     let x_border_right_wall = parameters.wall.x_right_wall + parameters.wall.thickness / 2;
-    let x_border_right_paddle = parameters.paddle.right_bound(parameters.as_ref());
+    let x_border_right_paddle = parameters.paddle.right_bound(&parameters);
 
-    let gap_between_bricks = parameters.distribution.gap_between_bricks;
+    let gap_between_bricks = parameters.misc.gap_between_bricks;
     let brick_width = parameters.brick.width;
     let total_width_of_bricks = (x_border_left_paddle - x_border_left_wall)
         - minimum_gap_between_bricks_and_vertical_walls
@@ -269,16 +270,18 @@ fn setup(
     }
 }
 
-fn move_paddles(
+fn move_players(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut Transform, With<Player>>,
+    mut query: Query<(&mut Transform, &Player, &Paddle)>,
+    level: Res<Level>,
     time: Res<Time>,
 ) {
-    for (mut paddle_transform, player) in zip(query.iter_mut(), &parameters.players) {
+    for mut entity in query.iter_mut() {
+        let (mut transform, player, paddle) = entity;
         let mut delta: Option<Vec3> = None;
-        for this_move in &player.moves {
-            if let Effect::Move(direction) = this_move.effect {
-                if keyboard_input.pressed(this_move.key.clone().into()) {
+        for control in &player.controls {
+            if let Effect::Move(direction) = control.effect {
+                if keyboard_input.pressed(control.key.into()) {
                     delta = match delta {
                         Some(delta) => Some(delta + direction),
                         None => Some(direction),
@@ -288,14 +291,14 @@ fn move_paddles(
         }
         if let Some(delta) = delta {
             // Calculate the new horizontal paddle position based on player input
-            let new_paddle_position = paddle_transform.translation
-                + delta.normalize_or_zero() * parameters.paddle.speed * time.delta_seconds();
+            let new_paddle_position = transform.translation
+                + delta.normalize_or_zero() * paddle.speed * time.delta_seconds();
 
             // Update the paddle position,
             // making sure it doesn't cause the paddle to leave the arena
-            paddle_transform.translation = new_paddle_position.clamp(
-                parameters.paddle.neg_bounds(parameters.as_ref()),
-                parameters.paddle.pos_bounds(parameters.as_ref()),
+            transform.translation = new_paddle_position.clamp(
+                paddle.neg_bounds(parameters.as_ref()),
+                paddle.pos_bounds(parameters.as_ref()),
             );
         }
     }

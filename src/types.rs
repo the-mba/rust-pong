@@ -5,13 +5,7 @@ use serde::{Deserialize, Serialize};
 pub enum AppStates {
     #[default]
     Menu,
-    Game(Level),
-}
-
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-pub enum Level {
-    #[default]
-    Level1,
+    Level1(Level),
 }
 
 #[derive(Component)]

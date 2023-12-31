@@ -36,25 +36,25 @@ pub fn parameters_from_toml() -> Parameters {
         players: vec![
             Player {
                 wall_that_gives_points: WallLocation::Right,
-                moves: vec![
+                controls: vec![
                     Control::new(MyKeyCode::Q, Effect::Move(up_direction)),
                     Control::new(MyKeyCode::A, Effect::Move(down_direction)),
                 ],
             },
             Player {
                 wall_that_gives_points: WallLocation::Left,
-                moves: vec![
+                controls: vec![
                     Control::new(MyKeyCode::O, Effect::Move(up_direction)),
                     Control::new(MyKeyCode::L, Effect::Move(down_direction)),
                 ],
             },
         ],
-        paddle: ParametersPaddle {
+        paddle: Paddle {
             width: 20,
             height: 120,
             speed: 500.,
         },
-        distribution: ParametersDistribution {
+        misc: ParametersMisc {
             up_direction,
             down_direction,
             gap_between_paddle_and_side_wall: 100,
@@ -73,7 +73,7 @@ pub fn parameters_from_toml() -> Parameters {
             probability_to_duplicate: 0.1,
             padding_for_bounds: 0.1,
         },
-        wall: ParametersWall {
+        wall: Level {
             thickness: 10,
             x_left_wall: -600,
             x_right_wall: 600,
@@ -121,10 +121,10 @@ pub fn parameters_from_toml() -> Parameters {
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Parameters {
     pub players: Vec<Player>,
-    pub paddle: ParametersPaddle,
-    pub distribution: ParametersDistribution,
+    pub paddle: Paddle,
+    pub misc: ParametersMisc,
     pub ball: ParametersBall,
-    pub wall: ParametersWall,
+    pub levels: Vec<Level>,
     pub brick: ParametersBrick,
     pub scoreboard: ParametersScoreboard,
     pub colors: ParametersColors,
@@ -133,46 +133,43 @@ pub struct Parameters {
 #[derive(Clone, Serialize, Deserialize, Component)]
 pub struct Player {
     pub wall_that_gives_points: WallLocation,
-    pub moves: Vec<Control>,
+    pub controls: Vec<Control>,
+    pub paddle: Paddle,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ParametersPaddle {
+#[derive(Clone, Serialize, Deserialize, Component)]
+pub struct Paddle {
     pub width: i32,
     pub height: i32,
     pub speed: f32,
 }
 
-impl ParametersPaddle {
+impl Paddle {
     pub fn size(&self) -> Vec3 {
         Vec3::new(self.width as f32, self.height as f32, 0.)
     }
     pub fn left_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.x_left_wall
             + parameters.wall.thickness / 2
-            + parameters.distribution.gap_between_paddle_and_side_wall
+            + parameters.misc.gap_between_paddle_and_side_wall
             + self.width / 2
     }
     pub fn right_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.x_right_wall
             - parameters.wall.thickness / 2
-            - parameters.distribution.gap_between_paddle_and_side_wall
+            - parameters.misc.gap_between_paddle_and_side_wall
             - self.width / 2
     }
     pub fn down_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.y_down_wall
             + parameters.wall.thickness / 2
-            + parameters
-                .distribution
-                .gap_between_paddle_and_horizontal_wall
+            + parameters.misc.gap_between_paddle_and_horizontal_wall
             + self.height / 2
     }
     pub fn up_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.y_up_wall
             - parameters.wall.thickness / 2
-            - parameters
-                .distribution
-                .gap_between_paddle_and_horizontal_wall
+            - parameters.misc.gap_between_paddle_and_horizontal_wall
             - self.height / 2
     }
     pub fn neg_bounds(&self, parameters: &Parameters) -> Vec3 {
@@ -192,7 +189,8 @@ impl ParametersPaddle {
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct ParametersDistribution {
+pub struct ParametersMisc {
+    pub wall_thickness: i32,
     pub up_direction: Vec3,
     pub down_direction: Vec3,
     pub gap_between_paddle_and_side_wall: i32, // x between paddle and side walls
@@ -583,9 +581,8 @@ impl ParametersBall {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-pub struct ParametersWall {
-    pub thickness: i32,
+#[derive(Clone, Serialize, Deserialize, Resource)]
+pub struct Level {
     pub x_left_wall: i32,
     pub x_right_wall: i32,
     pub y_down_wall: i32,
