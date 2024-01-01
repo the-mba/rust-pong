@@ -18,8 +18,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_state::<AppStates>()
-        .add_systems(OnEnter(AppStates::Menu), menu::setup_menu)
+        .add_state::<menu::AppState>()
+        .add_systems(OnEnter(menu::AppState::Menu), menu::setup_menu)
         .insert_resource(Scoreboard {
             scores: vec![0; parameters.players.len()],
         })
@@ -27,15 +27,18 @@ fn main() {
         .insert_resource(Speed(parameters.ball.speed))
         .insert_resource(ClearColor(parameters.colors.background))
         .add_event::<CollisionEvent>()
-        .add_systems(OnEnter(AppState::Menu), menu::setup_menu)
+        .add_systems(OnEnter(menu::AppState::Menu), menu::setup_menu)
         // By contrast, update systems are stored in the `Update` schedule. They simply
         // check the value of the `State<T>` resource to see if they should run each frame.
-        .add_systems(Update, menu::run_menu.run_if(in_state(AppState::Menu)))
-        .add_systems(OnExit(AppState::Menu), cleanup_menu)
-        .add_systems(OnEnter(AppState::InGame), setup_game)
         .add_systems(
             Update,
-            (movement, change_color).run_if(in_state(AppState::InGame)),
+            menu::run_menu.run_if(in_state(menu::AppState::Menu)),
+        )
+        .add_systems(OnExit(menu::AppState::Menu), menu::cleanup_menu)
+        .add_systems(OnEnter(menu::AppState::InGame), menu::setup_game)
+        .add_systems(
+            Update,
+            (menu::movement, menu::change_color).run_if(in_state(menu::AppState::InGame)),
         )
         .add_systems(Startup, setup)
         // Add our gameplay simulation systems to the fixed timestep schedule
@@ -60,7 +63,7 @@ mod menu {
     use bevy::prelude::*;
 
     #[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
-    enum AppState {
+    pub(super) enum AppState {
         #[default]
         Menu,
         InGame,
@@ -75,11 +78,11 @@ mod menu {
     const HOVERED_BUTTON: Color = Color::rgb(0.25, 0.25, 0.25);
     const PRESSED_BUTTON: Color = Color::rgb(0.35, 0.75, 0.35);
 
-    fn setup(mut commands: Commands) {
+    pub(super) fn setup(mut commands: Commands) {
         commands.spawn(Camera2dBundle::default());
     }
 
-    fn setup_menu(mut commands: Commands) {
+    pub(super) fn setup_menu(mut commands: Commands) {
         let button_entity = commands
             .spawn(NodeBundle {
                 style: Style {
@@ -122,7 +125,7 @@ mod menu {
         commands.insert_resource(MenuData { button_entity });
     }
 
-    fn menu(
+    pub(super) fn run_menu(
         mut next_state: ResMut<NextState<AppState>>,
         mut interaction_query: Query<
             (&Interaction, &mut BackgroundColor),
@@ -145,11 +148,11 @@ mod menu {
         }
     }
 
-    fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
+    pub(super) fn cleanup_menu(mut commands: Commands, menu_data: Res<MenuData>) {
         commands.entity(menu_data.button_entity).despawn_recursive();
     }
 
-    fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
+    pub(super) fn setup_game(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn(SpriteBundle {
             texture: asset_server.load("branding/icon.png"),
             ..default()
@@ -157,23 +160,23 @@ mod menu {
     }
 
     const SPEED: f32 = 100.0;
-    fn movement(
+    pub(super) fn movement(
         time: Res<Time>,
-        input: Res<ButtonInput<KeyCode>>,
+        input: Res<Input<KeyCode>>,
         mut query: Query<&mut Transform, With<Sprite>>,
     ) {
         for mut transform in &mut query {
             let mut direction = Vec3::ZERO;
-            if input.pressed(KeyCode::ArrowLeft) {
+            if input.pressed(KeyCode::Left) {
                 direction.x -= 1.0;
             }
-            if input.pressed(KeyCode::ArrowRight) {
+            if input.pressed(KeyCode::Right) {
                 direction.x += 1.0;
             }
-            if input.pressed(KeyCode::ArrowUp) {
+            if input.pressed(KeyCode::Up) {
                 direction.y += 1.0;
             }
-            if input.pressed(KeyCode::ArrowDown) {
+            if input.pressed(KeyCode::Down) {
                 direction.y -= 1.0;
             }
 
@@ -183,7 +186,7 @@ mod menu {
         }
     }
 
-    fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
+    pub(super) fn change_color(time: Res<Time>, mut query: Query<&mut Sprite>) {
         for mut sprite in &mut query {
             sprite
                 .color
@@ -416,9 +419,9 @@ fn setup(
 }
 
 fn move_players(
+    level: State<AppState>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Transform, &Player, &Paddle)>,
-    level: Res<Level>,
     time: Res<Time>,
 ) {
     for mut entity in query.iter_mut() {

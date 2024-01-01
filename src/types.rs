@@ -1,7 +1,7 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Default, Eq, PartialEq, Hash, States)]
 pub enum AppStates {
     #[default]
     Menu,

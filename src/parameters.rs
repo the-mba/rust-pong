@@ -29,32 +29,12 @@ pub fn parameters_from_toml() -> Parameters {
         Ok(())
     }
 
-    let up_direction = Vec3::new(0., 1., 0.);
-    let down_direction = Vec3::new(0., -1., 0.);
+    let parameters = {
+        let up_direction = Vec3::new(0., 1., 0.);
+        let down_direction = Vec3::new(0., -1., 0.);
 
-    let parameters = Parameters {
-        players: vec![
-            Player {
-                wall_that_gives_points: WallLocation::Right,
-                controls: vec![
-                    Control::new(MyKeyCode::Q, Effect::Move(up_direction)),
-                    Control::new(MyKeyCode::A, Effect::Move(down_direction)),
-                ],
-            },
-            Player {
-                wall_that_gives_points: WallLocation::Left,
-                controls: vec![
-                    Control::new(MyKeyCode::O, Effect::Move(up_direction)),
-                    Control::new(MyKeyCode::L, Effect::Move(down_direction)),
-                ],
-            },
-        ],
-        paddle: Paddle {
-            width: 20,
-            height: 120,
-            speed: 500.,
-        },
-        misc: ParametersMisc {
+        let misc = ParametersMisc {
+            wall_thickness: 10,
             up_direction,
             down_direction,
             gap_between_paddle_and_side_wall: 100,
@@ -63,8 +43,41 @@ pub fn parameters_from_toml() -> Parameters {
             gap_between_bricks: 1,
             minimum_gap_between_bricks_and_horizontal_walls: 20,
             minimum_gap_between_bricks_and_vertical_walls: 40,
-        },
-        ball: ParametersBall {
+        };
+
+        let levels = vec![Level {
+            x_left_wall: -600,
+            x_right_wall: 600,
+            y_down_wall: -300,
+            y_up_wall: 300,
+        }];
+
+        let paddle = Paddle {
+            width: 20,
+            height: 120,
+            speed: 500.,
+        };
+
+        let players = vec![
+            Player {
+                wall_that_gives_points: WallLocation::Right,
+                controls: vec![
+                    Control::new(MyKeyCode::Q, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::A, Effect::Move(down_direction)),
+                ],
+                paddle,
+            },
+            Player {
+                wall_that_gives_points: WallLocation::Left,
+                controls: vec![
+                    Control::new(MyKeyCode::O, Effect::Move(up_direction)),
+                    Control::new(MyKeyCode::L, Effect::Move(down_direction)),
+                ],
+                paddle,
+            },
+        ];
+
+        let ball = ParametersBall {
             starting_position: Vec3::new(0.0, -50.0, -1.0),
             starting_direction: Vec2::new(0.5, -0.5),
             speed: 400.0,
@@ -72,23 +85,19 @@ pub fn parameters_from_toml() -> Parameters {
             size: Vec3::new(30.0, 30.0, 0.),
             probability_to_duplicate: 0.1,
             padding_for_bounds: 0.1,
-        },
-        wall: Level {
-            thickness: 10,
-            x_left_wall: -600,
-            x_right_wall: 600,
-            y_down_wall: -300,
-            y_up_wall: 300,
-        },
-        brick: ParametersBrick {
+        };
+
+        let brick = ParametersBrick {
             width: 5,   // was 20
             height: 10, // was 100
-        },
-        scoreboard: ParametersScoreboard {
+        };
+
+        let scoreboard = ParametersScoreboard {
             font_size: 40.0,
             text_padding: Val::Px(5.0),
-        },
-        colors: ParametersColors {
+        };
+
+        let colors = ParametersColors {
             background: Color::rgb(0.9, 0.9, 0.9),
             paddle: Color::rgb(0.3, 0.3, 0.7),
             ball: Color::rgb(1.0, 0.5, 0.5),
@@ -96,7 +105,18 @@ pub fn parameters_from_toml() -> Parameters {
             wall: Color::rgb(0.8, 0.8, 0.8),
             text: Color::rgb(0.5, 0.5, 1.0),
             score: Color::rgb(1.0, 0.5, 0.5),
-        },
+        };
+
+        Parameters {
+            players,
+            paddle,
+            misc,
+            ball,
+            levels,
+            brick,
+            scoreboard,
+            colors,
+        }
     };
 
     let parameters: Parameters = match write_config_to_file_if_not_exists(
@@ -120,11 +140,11 @@ pub fn parameters_from_toml() -> Parameters {
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Parameters {
+    pub misc: ParametersMisc,
+    pub levels: Vec<Level>,
     pub players: Vec<Player>,
     pub paddle: Paddle,
-    pub misc: ParametersMisc,
     pub ball: ParametersBall,
-    pub levels: Vec<Level>,
     pub brick: ParametersBrick,
     pub scoreboard: ParametersScoreboard,
     pub colors: ParametersColors,
@@ -581,7 +601,7 @@ impl ParametersBall {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize, Resource)]
+#[derive(Clone, Copy, Serialize, Deserialize)]
 pub struct Level {
     pub x_left_wall: i32,
     pub x_right_wall: i32,
