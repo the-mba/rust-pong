@@ -216,22 +216,7 @@ fn setup(
     let paddle_x_2 = parameters.paddle.right_bound(&parameters) - parameters.paddle.width / 2;
 
     for player in &parameters.players {
-        commands.spawn((
-            SpriteBundle {
-                transform: Transform {
-                    translation: Vec3::new(paddle_x_1 as f32, 0.0, 0.0),
-                    scale: parameters.paddle.size(),
-                    ..default()
-                },
-                sprite: Sprite {
-                    color: parameters.colors.paddle,
-                    ..default()
-                },
-                ..default()
-            },
-            player.clone(),
-            Collider,
-        ));
+        commands.spawn();
     }
 
     // Ball
@@ -419,7 +404,7 @@ fn setup(
 }
 
 fn move_players(
-    level: State<AppState>,
+    level: State<menu::AppState>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Transform, &Player, &Paddle)>,
     time: Res<Time>,

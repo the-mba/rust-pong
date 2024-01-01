@@ -1,7 +1,7 @@
 use crate::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Default, Eq, PartialEq, Hash, States)]
+#[derive(Debug, Clone, Copy, Default, Eq, PartialEq, Hash, States)]
 pub enum AppStates {
     #[default]
     Menu,
@@ -25,6 +25,31 @@ pub struct Brick;
 
 #[derive(Resource)]
 pub struct CollisionSound(pub Handle<AudioSource>);
+
+#[derive(Bundle)]
+pub struct PlayerBundle {
+    pub sprite_bundle: SpriteBundle,
+    pub collider: Collider,
+    pub player: Player,
+}
+
+impl PlayerBundle {
+    pub fn new(player: &Player, x: i32, color: Color) -> Self {
+        Self {
+            sprite_bundle: SpriteBundle {
+                transform: Transform {
+                    translation: Vec3::new(x as f32, 0.0, 0.0),
+                    scale: player.paddle.size(),
+                    ..default()
+                },
+                sprite: Sprite { color, ..default() },
+                ..default()
+            },
+            collider: Collider,
+            player: player.clone(),
+        }
+    }
+}
 
 #[derive(Component)]
 pub struct Wall(pub WallLocation);

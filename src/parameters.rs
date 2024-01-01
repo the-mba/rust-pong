@@ -34,23 +34,11 @@ pub fn parameters_from_toml() -> Parameters {
         let down_direction = Vec3::new(0., -1., 0.);
 
         let misc = ParametersMisc {
-            wall_thickness: 10,
-            up_direction,
-            down_direction,
-            gap_between_paddle_and_side_wall: 100,
-            gap_between_paddle_and_horizontal_wall: 10,
             minimum_gap_between_paddle_and_goal_bricks: 20,
             gap_between_bricks: 1,
             minimum_gap_between_bricks_and_horizontal_walls: 20,
             minimum_gap_between_bricks_and_vertical_walls: 40,
         };
-
-        let levels = vec![Level {
-            x_left_wall: -600,
-            x_right_wall: 600,
-            y_down_wall: -300,
-            y_up_wall: 300,
-        }];
 
         let paddle = Paddle {
             width: 20,
@@ -86,6 +74,16 @@ pub fn parameters_from_toml() -> Parameters {
             probability_to_duplicate: 0.1,
             padding_for_bounds: 0.1,
         };
+
+        let levels = vec![Level {
+            x_left_wall: -600,
+            x_right_wall: 600,
+            y_down_wall: -300,
+            y_up_wall: 300,
+            wall_thickness: 10,
+            gap_between_paddle_and_side_wall: 100,
+            gap_between_paddle_and_horizontal_wall: 10,
+        }];
 
         let brick = ParametersBrick {
             width: 5,   // was 20
@@ -140,11 +138,11 @@ pub fn parameters_from_toml() -> Parameters {
 
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Parameters {
-    pub misc: ParametersMisc,
-    pub levels: Vec<Level>,
     pub players: Vec<Player>,
     pub paddle: Paddle,
+    pub misc: ParametersMisc,
     pub ball: ParametersBall,
+    pub levels: Vec<Level>,
     pub brick: ParametersBrick,
     pub scoreboard: ParametersScoreboard,
     pub colors: ParametersColors,
@@ -168,53 +166,10 @@ impl Paddle {
     pub fn size(&self) -> Vec3 {
         Vec3::new(self.width as f32, self.height as f32, 0.)
     }
-    pub fn left_bound(&self, parameters: &Parameters) -> i32 {
-        parameters.wall.x_left_wall
-            + parameters.wall.thickness / 2
-            + parameters.misc.gap_between_paddle_and_side_wall
-            + self.width / 2
-    }
-    pub fn right_bound(&self, parameters: &Parameters) -> i32 {
-        parameters.wall.x_right_wall
-            - parameters.wall.thickness / 2
-            - parameters.misc.gap_between_paddle_and_side_wall
-            - self.width / 2
-    }
-    pub fn down_bound(&self, parameters: &Parameters) -> i32 {
-        parameters.wall.y_down_wall
-            + parameters.wall.thickness / 2
-            + parameters.misc.gap_between_paddle_and_horizontal_wall
-            + self.height / 2
-    }
-    pub fn up_bound(&self, parameters: &Parameters) -> i32 {
-        parameters.wall.y_up_wall
-            - parameters.wall.thickness / 2
-            - parameters.misc.gap_between_paddle_and_horizontal_wall
-            - self.height / 2
-    }
-    pub fn neg_bounds(&self, parameters: &Parameters) -> Vec3 {
-        Vec3::new(
-            self.left_bound(parameters) as f32,
-            self.down_bound(parameters) as f32,
-            0.,
-        )
-    }
-    pub fn pos_bounds(&self, parameters: &Parameters) -> Vec3 {
-        Vec3::new(
-            self.right_bound(parameters) as f32,
-            self.up_bound(parameters) as f32,
-            0.,
-        )
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ParametersMisc {
-    pub wall_thickness: i32,
-    pub up_direction: Vec3,
-    pub down_direction: Vec3,
-    pub gap_between_paddle_and_side_wall: i32, // x between paddle and side walls
-    pub gap_between_paddle_and_horizontal_wall: i32, // y between paddle and top walls
     pub minimum_gap_between_paddle_and_goal_bricks: i32,
     pub gap_between_bricks: i32,
     pub minimum_gap_between_bricks_and_horizontal_walls: i32,
@@ -573,7 +528,7 @@ impl ParametersBall {
     pub fn starting_velocity(&self) -> Vec2 {
         self.starting_direction.normalize() * self.speed
     }
-    pub fn left_bound(&self, parameters: &Parameters) -> i32 {
+    /* pub fn left_bound(&self, parameters: &Parameters) -> i32 {
         parameters.wall.x_left_wall + parameters.wall.thickness / 2 + self.size.x as i32 / 2
     }
     pub fn right_bound(&self, parameters: &Parameters) -> i32 {
@@ -598,15 +553,39 @@ impl ParametersBall {
             self.up_bound(parameters) as f32 + self.padding_for_bounds,
             0.,
         )
-    }
+    } */
 }
 
-#[derive(Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct Level {
-    pub x_left_wall: i32,
-    pub x_right_wall: i32,
-    pub y_down_wall: i32,
-    pub y_up_wall: i32,
+    x_left_wall: i32,
+    x_right_wall: i32,
+    y_down_wall: i32,
+    y_up_wall: i32,
+    wall_thickness: i32,
+    gap_between_paddle_and_side_wall: i32, // x between paddle and side walls
+    pub gap_between_paddle_and_horizontal_wall: i32, // y between paddle and top walls
+}
+
+impl Level {
+    pub fn left_bound(&self) -> i32 {
+        self.x_left_wall + self.wall_thickness / 2
+    }
+    pub fn right_bound(&self) -> i32 {
+        self.x_right_wall - self.wall_thickness / 2
+    }
+    pub fn down_bound(&self) -> i32 {
+        self.y_down_wall + self.wall_thickness / 2
+    }
+    pub fn up_bound(&self) -> i32 {
+        self.y_up_wall - self.wall_thickness / 2
+    }
+    pub fn neg_bounds(&self) -> Vec3 {
+        Vec3::new(self.left_bound() as f32, self.down_bound() as f32, 0.)
+    }
+    pub fn pos_bounds(&self) -> Vec3 {
+        Vec3::new(self.right_bound() as f32, self.up_bound() as f32, 0.)
+    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
