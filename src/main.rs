@@ -20,7 +20,7 @@ fn main() {
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_state::<menu::AppState>()
         .add_systems(OnEnter(menu::AppState::Menu), menu::setup_menu)
-        .insert_resource(Scoreboard {
+        .insert_resource(Scoreboards {
             scores: vec![0; parameters.players.len()],
         })
         .insert_resource(parameters.clone())
@@ -216,7 +216,7 @@ fn setup(
     let paddle_x_2 = parameters.paddle.right_bound(&parameters) - parameters.paddle.width / 2;
 
     for player in &parameters.players {
-        commands.spawn();
+        commands.spawn(parameters.paddle);
     }
 
     // Ball
@@ -456,7 +456,7 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity, Option<&Ball>)>, 
     }
 }
 
-fn update_scoreboards(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) {
+fn update_scoreboards(scoreboard: Res<Scoreboards>, mut query: Query<&mut Text>) {
     for (i, mut text) in query.iter_mut().enumerate() {
         if let Some(score) = scoreboard.scores.get(i) {
             text.sections[1].value = score.to_string();
@@ -468,7 +468,7 @@ fn update_scoreboards(scoreboard: Res<Scoreboard>, mut query: Query<&mut Text>) 
 #[allow(clippy::type_complexity)]
 fn check_for_collisions(
     mut commands: Commands,
-    mut scoreboard: ResMut<Scoreboard>,
+    mut scoreboard: ResMut<Scoreboards>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>, Option<&Wall>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,

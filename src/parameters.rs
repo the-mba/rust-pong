@@ -7,7 +7,7 @@ use std::{fs::File, path::Path};
 use toml::to_string;
 
 const PARAMETERS_FILE_PATH: &str = "parameters.toml";
-const ALWAYS_REWRITE_TOML: bool = true;
+const ALWAYS_REWRITE_TOML: bool = cfg!(debug_assertions);
 
 pub fn wrong_toml(reason: &str) {
     panic!("Unvalid TOML file structure [{path}] ({reason}), delete file and a valid one will be generated.",
@@ -139,33 +139,12 @@ pub fn parameters_from_toml() -> Parameters {
 #[derive(Resource, Clone, Serialize, Deserialize)]
 pub struct Parameters {
     pub players: Vec<Player>,
-    pub paddle: Paddle,
     pub misc: ParametersMisc,
     pub ball: ParametersBall,
     pub levels: Vec<Level>,
     pub brick: ParametersBrick,
     pub scoreboard: ParametersScoreboard,
     pub colors: ParametersColors,
-}
-
-#[derive(Clone, Serialize, Deserialize, Component)]
-pub struct Player {
-    pub wall_that_gives_points: WallLocation,
-    pub controls: Vec<Control>,
-    pub paddle: Paddle,
-}
-
-#[derive(Clone, Serialize, Deserialize, Component)]
-pub struct Paddle {
-    pub width: i32,
-    pub height: i32,
-    pub speed: f32,
-}
-
-impl Paddle {
-    pub fn size(&self) -> Vec3 {
-        Vec3::new(self.width as f32, self.height as f32, 0.)
-    }
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -556,38 +535,6 @@ impl ParametersBall {
     } */
 }
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
-pub struct Level {
-    pub x_left_wall: i32,
-    pub x_right_wall: i32,
-    pub y_down_wall: i32,
-    pub y_up_wall: i32,
-    wall_thickness: i32,
-    gap_between_paddle_and_side_wall: i32, // x between paddle and side walls
-    pub gap_between_paddle_and_horizontal_wall: i32, // y between paddle and top walls
-}
-
-impl Level {
-    pub fn left_bound(&self) -> i32 {
-        self.x_left_wall + self.wall_thickness / 2
-    }
-    pub fn right_bound(&self) -> i32 {
-        self.x_right_wall - self.wall_thickness / 2
-    }
-    pub fn down_bound(&self) -> i32 {
-        self.y_down_wall + self.wall_thickness / 2
-    }
-    pub fn up_bound(&self) -> i32 {
-        self.y_up_wall - self.wall_thickness / 2
-    }
-    pub fn neg_bounds(&self) -> Vec3 {
-        Vec3::new(self.left_bound() as f32, self.down_bound() as f32, 0.)
-    }
-    pub fn pos_bounds(&self) -> Vec3 {
-        Vec3::new(self.right_bound() as f32, self.up_bound() as f32, 0.)
-    }
-}
-
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ParametersBrick {
     pub width: i32,
@@ -609,7 +556,6 @@ pub struct ParametersScoreboard {
 #[derive(Clone, Serialize, Deserialize)]
 pub struct ParametersColors {
     pub background: Color,
-    pub paddle: Color,
     pub ball: Color,
     pub brick: Color,
     pub wall: Color,

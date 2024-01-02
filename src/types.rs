@@ -17,7 +17,7 @@ pub struct Velocity(pub Vec2);
 #[derive(Component)]
 pub struct Collider;
 
-#[derive(Event, Default)]
+#[derive(Event)]
 pub struct CollisionEvent;
 
 #[derive(Component)]
@@ -51,8 +51,67 @@ impl PlayerBundle {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize, Component)]
+pub struct Player {
+    pub wall_that_gives_points: usize,
+    pub controls: Vec<Control>,
+    pub paddle: Paddle,
+}
+
+impl Player {
+    pub fn new_bundle(&self) -> (SpriteBundle, Paddle, Collider) {
+        (
+            SpriteBundle {
+                transform: Transform {
+                    translation: self.paddle.position(),
+                    scale: Vec3::new(self.paddle.width, self.paddle.height, 10.),
+                    ..default()
+                },
+                sprite: Sprite {
+                    color: self.paddle.color,
+                    ..default()
+                },
+                ..default()
+            },
+            Paddle {},
+            Collider,
+        )
+    }
+}
+
+#[derive(Clone, Serialize, Deserialize, Component)]
+pub struct Paddle {
+    pub width: f32,
+    pub height: f32,
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+    pub position: 
+    pub color: Color,
+}
+
+impl Paddle {
+    pub fn position(&self) -> Vec3 {
+        Vec3::new(self.x, self.y, self.z)
+    }
+    pub fn size(&self) -> Vec3 {
+        Vec3::new(self.width, self.height, 0.)
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
+pub struct Level {
+    pub walls: Vec<Wall>,
+    pub paddles: Vec<Paddle>,
+}
+
 #[derive(Component)]
-pub struct Wall(pub WallLocation);
+pub struct Wall {
+    pub position: Vec3,
+    pub end_a: Vec2,
+    pub end_b: Vec2,
+    pub thickness: i32,
+}
 
 // This bundle is a collection of the components that define a "wall" in our game
 #[derive(Bundle)]
@@ -92,58 +151,11 @@ impl WallBundle {
     }
 }
 
-/// Which side of the arena is this wall located on?
-#[derive(PartialEq, Eq, Serialize, Deserialize, Clone)]
-pub enum WallLocation {
-    Left,
-    Right,
-    Down,
-    Up,
-}
-
-impl WallLocation {
-    pub fn position(&self, level: &Level) -> Vec2 {
-        match self {
-            WallLocation::Left => Vec2::new(level.x_left_wall as f32, 0.),
-            WallLocation::Right => Vec2::new(level.x_right_wall as f32, 0.),
-            WallLocation::Down => Vec2::new(0., level.y_down_wall as f32),
-            WallLocation::Up => Vec2::new(0., level.y_up_wall as f32),
-        }
-    }
-
-    pub fn size(&self, parameters: &Parameters) -> Vec2 {
-        let arena_height = parameters.wall.y_up_wall - parameters.wall.y_down_wall;
-        let arena_width = parameters.wall.x_right_wall - parameters.wall.x_left_wall;
-        // Make sure we haven't messed up our constants
-        assert!(arena_height > 0);
-        assert!(arena_width > 0);
-
-        match self {
-            WallLocation::Left | WallLocation::Right => Vec2::new(
-                parameters.wall.thickness as f32,
-                arena_height as f32 + parameters.wall.thickness as f32,
-            ),
-            WallLocation::Down | WallLocation::Up => Vec2::new(
-                arena_width as f32 + parameters.wall.thickness as f32,
-                parameters.wall.thickness as f32,
-            ),
-        }
-    }
-}
-
 // This resource tracks the game's score
 #[derive(Resource)]
-pub struct Scoreboard {
+pub struct Scoreboards {
+    pub cndn: Vec<i32>,
     pub scores: Vec<i32>,
-}
-
-#[derive(Resource)]
-pub struct Speed(pub f32);
-
-#[derive(Clone, Serialize, Deserialize)]
-pub enum Effect {
-    Move(Vec3),
-    Nothing,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -156,4 +168,10 @@ impl Control {
     pub fn new(key: MyKeyCode, effect: Effect) -> Self {
         Self { key, effect }
     }
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+pub enum Effect {
+    Move(Vec3),
+    Nothing,
 }
