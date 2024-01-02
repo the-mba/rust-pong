@@ -102,12 +102,12 @@ pub enum WallLocation {
 }
 
 impl WallLocation {
-    pub fn position(&self, parameters: &Parameters) -> Vec2 {
+    pub fn position(&self, level: &Level) -> Vec2 {
         match self {
-            WallLocation::Left => Vec2::new(parameters.wall.x_left_wall as f32, 0.),
-            WallLocation::Right => Vec2::new(parameters.wall.x_right_wall as f32, 0.),
-            WallLocation::Down => Vec2::new(0., parameters.wall.y_down_wall as f32),
-            WallLocation::Up => Vec2::new(0., parameters.wall.y_up_wall as f32),
+            WallLocation::Left => Vec2::new(level.x_left_wall as f32, 0.),
+            WallLocation::Right => Vec2::new(level.x_right_wall as f32, 0.),
+            WallLocation::Down => Vec2::new(0., level.y_down_wall as f32),
+            WallLocation::Up => Vec2::new(0., level.y_up_wall as f32),
         }
     }
 

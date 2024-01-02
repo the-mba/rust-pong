@@ -558,10 +558,10 @@ impl ParametersBall {
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub struct Level {
-    x_left_wall: i32,
-    x_right_wall: i32,
-    y_down_wall: i32,
-    y_up_wall: i32,
+    pub x_left_wall: i32,
+    pub x_right_wall: i32,
+    pub y_down_wall: i32,
+    pub y_up_wall: i32,
     wall_thickness: i32,
     gap_between_paddle_and_side_wall: i32, // x between paddle and side walls
     pub gap_between_paddle_and_horizontal_wall: i32, // y between paddle and top walls
