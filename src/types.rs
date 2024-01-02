@@ -129,26 +129,43 @@ pub fn parameters_from_toml() -> Parameters {
         };
 
         let levels = {
+            // Walls
             let x_left_wall = -600.;
             let x_right_wall = 600.;
             let y_down_wall = -300.;
             let y_up_wall = 300.;
             let thickness = 10.;
+            // Paddles
+            let width = 20.;
+            let height = 120.;
+                // x is dynamic
+            let gap_between_paddle_and_vertical_wall = 100.;
+            let y = 0;
+            let z = 0;
+            let gap_between_paddle_and_horizontal_wall = 10.;
+
+            let x_1 = x_left_wall + thickness / 2. + gap_between_paddle_and_vertical_wall + width / 2.;
+            let x_2 = x_right_wall - thickness / 2. - gap_between_paddle_and_vertical_wall - width / 2.;
+            let y_min = y_down_wall + thickness / 2. + gap_between_paddle_and_horizontal_wall + height / 2.;
+            let y_max = y_up_wall - thickness / 2. - gap_between_paddle_and_horizontal_wall - height / 2.;
+            let neg_bounds_1 = Vec2::new(x_1, y_min);
+            let pos_bounds_1 = Vec2::new(x_1, y_max);
+            let neg_bounds_2 = Vec2::new(x_2, y_min);
+            let pos_bounds_2 = Vec2::new(x_2, y_max);
+
+            let speed = 500.;
+            // Result
             vec![Level {
             walls: vec![
                 Wall{ends: (Vec2::new(x_left_wall, y_up_wall), Vec2::new(x_left_wall, y_down_wall)), thickness},
                 Wall{ends: (Vec2::new(x_right_wall, y_up_wall), Vec2::new(x_left_wall, y_down_wall)), thickness},
                 Wall{ends: (Vec2::new(x_left_wall, y_down_wall), Vec2::new(x_right_wall, y_down_wall)), thickness},
                 Wall{ends: (Vec2::new(x_left_wall, y_up_wall), Vec2::new(x_right_wall, y_up_wall)), thickness},
-
             ],
             paddles: vec![
                 Paddle{}
-
             ],
             
-            wall_thickness: 10,
-            gap_between_paddle_and_side_wall: 100,
             gap_between_paddle_and_horizontal_wall: 10,
         }]};
 
@@ -683,6 +700,7 @@ pub struct Paddle {
     pub z: f32,
     pub neg_bounds: Vec2,
     pub pos_bounds: Vec2,
+    pub velocity: Vec2,
     pub color: Color,
 }
 
