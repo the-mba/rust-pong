@@ -24,17 +24,21 @@ mod resources {
     pub struct CollisionSound(pub Handle<AudioSource>);
     #[derive(Resource)]
     pub struct Scoreboards {
-        pub scores: Vec<i32>,
+        pub scores: Vec<f32>,
     }
 }
 mod parameters {
     use bevy::prelude::*;
+    use ordered_float::OrderedFloat;
     use serde::{Deserialize, Serialize};
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
     use toml::to_string;
 
     use super::components::{Paddle, Player, Wall};
+
+    const PARAMETERS_FILE_PATH: &str = "parameters.toml";
+    const ALWAYS_REWRITE_TOML: bool = cfg!(debug_assertions);
 
     #[derive(Debug, Clone, Serialize, Deserialize, Eq, PartialEq, Hash)]
     pub struct Level {
@@ -53,9 +57,6 @@ mod parameters {
         Move(Vec3),
         Nothing,
     }
-
-    const PARAMETERS_FILE_PATH: &str = "parameters.toml";
-    const ALWAYS_REWRITE_TOML: bool = cfg!(debug_assertions);
 
     pub fn wrong_toml(reason: &str) {
         panic!("Unvalid TOML file structure [{path}] ({reason}), delete file and a valid one will be generated.",
@@ -82,10 +83,10 @@ mod parameters {
             let down_direction = Vec3::new(0., -1., 0.);
 
             let misc = ParametersMisc {
-                minimum_gap_between_paddle_and_goal_bricks: 20,
-                gap_between_bricks: 1,
-                minimum_gap_between_bricks_and_horizontal_walls: 20,
-                minimum_gap_between_bricks_and_vertical_walls: 40,
+                minimum_gap_between_paddle_and_goal_bricks: 20.,
+                gap_between_bricks: 1.,
+                minimum_gap_between_bricks_and_horizontal_walls: 20.,
+                minimum_gap_between_bricks_and_vertical_walls: 40.,
             };
 
             let players = vec![
@@ -127,11 +128,11 @@ mod parameters {
 
             let levels = {
                 // Walls
-                let x_left_wall = -600.;
-                let x_right_wall = 600.;
-                let y_down_wall = -300.;
-                let y_up_wall = 300.;
-                let thickness = 10.;
+                let x_left_wall: f32 = -600.;
+                let x_right_wall: f32 = 600.;
+                let y_down_wall: f32 = -300.;
+                let y_up_wall: f32 = 300.;
+                let thickness: f32 = 10.;
 
                 let walls = vec![
                     Wall {
@@ -169,8 +170,8 @@ mod parameters {
                 let height = 120.;
                 // x is dynamic
                 let gap_between_paddle_and_vertical_wall = 100.;
-                let y = 0;
-                let z = 0;
+                let y = 0.;
+                let z = 0.;
                 let gap_between_paddle_and_horizontal_wall = 10.;
                 let velocity = Vec2::new(0., 0.);
                 let color = Color::rgb(0.3, 0.3, 0.7);
@@ -202,6 +203,12 @@ mod parameters {
                     };
                     let velocity = velocity;
                     let color = color;
+
+                    let width = OrderedFloat(width);
+                    let height = OrderedFloat(height);
+                    let x = OrderedFloat(x);
+                    let y = OrderedFloat(y);
+                    let z = OrderedFloat(z);
                     Paddle {
                         width,
                         height,
@@ -212,7 +219,7 @@ mod parameters {
                         pos_bounds,
                         velocity,
                         color,
-                    };
+                    }
                 };
                 let paddle_2 = {
                     let width = width;
@@ -242,7 +249,7 @@ mod parameters {
                         pos_bounds,
                         velocity,
                         color,
-                    };
+                    }
                 };
 
                 let paddles = vec![paddle_1, paddle_2];
@@ -253,8 +260,8 @@ mod parameters {
             };
 
             let brick = ParametersBrick {
-                width: 5,   // was 20
-                height: 10, // was 100
+                width: 5.,   // was 20
+                height: 10., // was 100
             };
 
             let scoreboard = ParametersScoreboard {
@@ -314,10 +321,10 @@ mod parameters {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub struct ParametersMisc {
-        pub minimum_gap_between_paddle_and_goal_bricks: i32,
-        pub gap_between_bricks: i32,
-        pub minimum_gap_between_bricks_and_horizontal_walls: i32,
-        pub minimum_gap_between_bricks_and_vertical_walls: i32,
+        pub minimum_gap_between_paddle_and_goal_bricks: f32,
+        pub gap_between_bricks: f32,
+        pub minimum_gap_between_bricks_and_horizontal_walls: f32,
+        pub minimum_gap_between_bricks_and_vertical_walls: f32,
     }
 
     #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -672,43 +679,17 @@ mod parameters {
         pub fn starting_velocity(&self) -> Vec2 {
             self.starting_direction.normalize() * self.speed
         }
-        /* pub fn left_bound(&self, parameters: &Parameters) -> i32 {
-            parameters.wall.x_left_wall + parameters.wall.thickness / 2 + self.size.x as i32 / 2
-        }
-        pub fn right_bound(&self, parameters: &Parameters) -> i32 {
-            parameters.wall.x_right_wall - parameters.wall.thickness / 2 - self.size.x as i32 / 2
-        }
-        pub fn down_bound(&self, parameters: &Parameters) -> i32 {
-            parameters.wall.y_down_wall + parameters.wall.thickness / 2 + self.size.y as i32 / 2
-        }
-        pub fn up_bound(&self, parameters: &Parameters) -> i32 {
-            parameters.wall.y_up_wall - parameters.wall.thickness / 2 - self.size.y as i32 / 2
-        }
-        pub fn neg_bounds(&self, parameters: &Parameters) -> Vec3 {
-            Vec3::new(
-                self.left_bound(parameters) as f32 - self.padding_for_bounds,
-                self.down_bound(parameters) as f32 - self.padding_for_bounds,
-                0.,
-            )
-        }
-        pub fn pos_bounds(&self, parameters: &Parameters) -> Vec3 {
-            Vec3::new(
-                self.right_bound(parameters) as f32 + self.padding_for_bounds,
-                self.up_bound(parameters) as f32 + self.padding_for_bounds,
-                0.,
-            )
-        } */
     }
 
     #[derive(Clone, Serialize, Deserialize)]
     pub struct ParametersBrick {
-        pub width: i32,
-        pub height: i32,
+        pub width: f32,
+        pub height: f32,
     }
 
     impl ParametersBrick {
         pub fn size(&self) -> Vec3 {
-            Vec3::new(self.width as f32, self.height as f32, 1.)
+            Vec3::new(self.width, self.height, 1.)
         }
     }
 
@@ -731,32 +712,13 @@ mod parameters {
 
 mod components {
     use bevy::prelude::*;
+    use ordered_float::OrderedFloat;
     use serde::{Deserialize, Serialize};
 
     use super::parameters::Control;
     #[derive(Clone, Serialize, Deserialize, Component)]
     pub struct Player {
         pub controls: Vec<Control>,
-    }
-
-    impl Player {
-        pub fn new_bundle(&self) -> (SpriteBundle, Collider) {
-            (
-                SpriteBundle {
-                    transform: Transform {
-                        translation: self.paddle.position(),
-                        scale: Vec3::new(self.paddle.width, self.paddle.height, 10.),
-                        ..default()
-                    },
-                    sprite: Sprite {
-                        color: self.paddle.color,
-                        ..default()
-                    },
-                    ..default()
-                },
-                Collider,
-            )
-        }
     }
 
     #[derive(Component)]
@@ -772,11 +734,11 @@ mod components {
     pub struct Brick;
     #[derive(Debug, Copy, Clone, Serialize, Deserialize, Component, Eq, PartialEq, Hash)]
     pub struct Paddle {
-        pub width: f32,
-        pub height: f32,
-        pub x: f32,
-        pub y: f32,
-        pub z: f32,
+        pub width: OrderedFloat,
+        pub height: OrderedFloat,
+        pub x: OrderedFloat,
+        pub y: OrderedFloat,
+        pub z: OrderedFloat,
         pub neg_bounds: Vec2,
         pub pos_bounds: Vec2,
         pub velocity: Vec2,
@@ -794,7 +756,7 @@ mod components {
     #[derive(Debug, Clone, Component, Serialize, Deserialize, Eq, PartialEq, Hash)]
     pub struct Wall {
         pub ends: (Vec2, Vec2),
-        pub thickness: i32,
+        pub thickness: f32,
     }
 }
 
@@ -809,11 +771,11 @@ mod bundles {
     }
 
     impl PlayerBundle {
-        pub fn new(player: &Player, x: i32, color: Color) -> Self {
+        pub fn new(player: &Player, translation: Vec3, color: Color) -> Self {
             Self {
                 sprite_bundle: SpriteBundle {
                     transform: Transform {
-                        translation: Vec3::new(x as f32, 0.0, 0.0),
+                        translation,
                         scale: player.paddle.size(),
                         ..default()
                     },

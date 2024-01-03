@@ -13,6 +13,8 @@ use bevy::{
 };
 
 fn main() {
+    println!("debug_assertions is {:?}", cfg!(debug_assertions));
+
     let parameters = parameters_from_toml();
 
     App::new()
@@ -326,21 +328,21 @@ fn setup(
     let x_left_center_of_bricks = (x_border_left_wall + x_border_left_paddle) / 2;
     let left_left_edge_of_bricks = x_left_center_of_bricks
         // Space taken up by the bricks
-        - (n_columns as f32 / 2. * brick_width as f32) as i32
+        - (n_columns / 2. * brick_width)
         // Space taken up by the gaps
-        - (n_vertical_gaps as f32 / 2. * gap_between_bricks as f32) as i32;
+        - (n_vertical_gaps / 2. * gap_between_bricks);
     let x_right_center_of_bricks = (x_border_right_wall + x_border_right_paddle) / 2;
     let right_left_edge_of_bricks = x_right_center_of_bricks
         // Space taken up by the bricks
-        - (n_columns as f32 / 2. * brick_width as f32) as i32
+        - (n_columns / 2. * brick_width)
         // Space taken up by the gaps
-        - (n_vertical_gaps as f32 / 2. * gap_between_bricks as f32) as i32;
+        - (n_vertical_gaps / 2. * gap_between_bricks);
     let y_left_center_of_bricks = (y_border_top_wall + y_border_down_wall) / 2;
     let bottom_edge_of_bricks = y_left_center_of_bricks
         // Space taken up by the bricks
-        - (n_rows as f32 / 2. * brick_height as f32) as i32
+        - (n_rows / 2. * brick_height)
         // Space taken up by the gaps
-        - (n_horizontal_gaps as f32 / 2. * gap_between_bricks as f32) as i32;
+        - (n_horizontal_gaps / 2. * gap_between_bricks);
 
     // In Bevy, the `translation` of an entity describes the center point,
     // not its bottom-left corner
@@ -351,8 +353,8 @@ fn setup(
     for row in 0..n_rows {
         for column in 0..n_columns {
             let brick_position = Vec2::new(
-                (left_offset_x + column * (brick_width + gap_between_bricks)) as f32,
-                (offset_y + row * (brick_height + gap_between_bricks)) as f32,
+                (left_offset_x + column * (brick_width + gap_between_bricks)),
+                (offset_y + row * (brick_height + gap_between_bricks)),
             );
 
             // brick
@@ -378,8 +380,8 @@ fn setup(
     for row in 0..n_rows {
         for column in 0..n_columns {
             let brick_position = Vec2::new(
-                (right_offset_x + column * (brick_width + gap_between_bricks)) as f32,
-                (offset_y + row * (brick_height + gap_between_bricks)) as f32,
+                (right_offset_x + column * (brick_width + gap_between_bricks)),
+                (offset_y + row * (brick_height + gap_between_bricks)),
             );
 
             // brick

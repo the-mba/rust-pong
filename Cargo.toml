@@ -10,6 +10,7 @@ bevy = { version = "0.12.1", features = ["dynamic_linking"] }
 rand = "0.8.5"
 serde = { version = "1.0", features = ["derive"] }
 toml = "0.8.8"
+ordered-float = "4.2.0"
 
 # Enable a small amount of optimization in debug mode, for Bevy
 [profile.dev]
