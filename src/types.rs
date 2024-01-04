@@ -778,32 +778,37 @@ mod components {
     }
 
     impl Wall {
+        pub fn end_a(&self) -> Vec2 {
+            Wall::f32_2tuple_from_r32_2tuple(&self.ends.0)
+        }
+        pub fn end_b(&self) -> Vec2 {
+            Wall::f32_2tuple_from_r32_2tuple(&self.ends.1)
+        }
+        pub fn thickness(&self) -> f32 {
+            self.thickness.into_inner()
+        }
         pub fn translation(&self) -> Vec2 {
-            
-            let ends: ((f32, f32), (f32, f32)) = self
-                .ends
-                .to_vec()
-                .iter()
-                .map(|xx| f32_2tuple_from_r32_2tuple(xx))
-                .collect_tuple()
-                .unwrap();
-            let end_a = ends.0;
-            let end_b = ends.1;
-            let end_a = Vec2::new(end_a.0, end_a.1);
-            let end_b = Vec2::new(end_b.0, end_b.1);
-            let center = (end_a + end_b) / 2.;
-            center
+            (self.end_a() + self.end_b()) / 2.
         }
         pub fn scale(&self) -> Vec2 {
-            let 
+            let end_a = self.end_a();
+            let end_b = self.end_b();
+            let dir_a_to_b = (end_b - end_a).normalize_or_zero();
+            let left = dir_a_to_b.perp();
+            let right = dir_a_to_b.perp().perp().perp();
+            let bottom_left = end_a + (left * self.thickness());
+            let bottom_right = end_a + (right * self.thickness());
+            let top_left = end_b + (left * self.thickness());
+            let top_right = end_b + (right * self.thickness());
         }
-        fn f32_2tuple_from_r32_2tuple(r32_tuple: &(R32, R32)) -> (f32, f32) {
-            r32_tuple
+        fn f32_2tuple_from_r32_2tuple(r32_tuple: &(R32, R32)) -> Vec2 {
+            let t = r32_tuple
                 .to_vec()
                 .iter()
                 .map(|x| x.into_inner())
                 .collect_tuple()
-                .unwrap()
+                .unwrap();
+            Vec2::new(t.0, t.1)
         }
     }
 }
