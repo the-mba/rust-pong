@@ -30,10 +30,12 @@ mod resources {
 mod parameters {
     use bevy::prelude::*;
     use decorum::R32;
+    use itertools::Itertools;
     use serde::{Deserialize, Serialize};
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
     use toml::to_string;
+    use tuple_conv::RepeatedTuple as _;
 
     use super::components::{Paddle, Player, Wall};
 
@@ -54,8 +56,17 @@ mod parameters {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub enum Effect {
-        Move(Vec3),
+        Move(Vec4),
         Nothing,
+    }
+
+    fn vec2_to_r32_tuple(v: &Vec2) -> (R32, R32) {
+        (v.x, v.y)
+            .to_vec()
+            .iter()
+            .map(|x| R32::from(*x))
+            .collect_tuple()
+            .expect("Should be 2 arguments")
     }
 
     pub fn wrong_toml(reason: &str) {
@@ -209,13 +220,9 @@ mod parameters {
                     let x = R32::from(x);
                     let y = R32::from(y);
                     let z = R32::from(z);
-                    let neg_bounds = neg_bounds
-                        .map(R32::from)
-                        .collect_tuple()
-                        .expect("Should be 2 arguments for bounds");
-                    let neg_bounds = (R32::from(neg_bounds.x), R32::from(neg_bounds.y));
-                    let pos_bounds = (R32::from(pos_bounds.x), R32::from(pos_bounds.y));
-                    let velocity = (R32::from(velocity.x),);
+                    let neg_bounds = vec2_to_r32_tuple(&neg_bounds);
+                    let pos_bounds = vec2_to_r32_tuple(&pos_bounds);
+                    let velocity = vec2_to_r32_tuple(&velocity);
 
                     Paddle {
                         width,
@@ -755,7 +762,7 @@ mod components {
         pub x: R32,
         pub y: R32,
         pub z: R32,
-        pub neg_bounds: (R32, R32),
+        pub neg_bounds: Vec2,
         pub pos_bounds: (R32, R32),
         pub velocity: (R32, R32),
         pub color: (R32, R32, R32, R32),
