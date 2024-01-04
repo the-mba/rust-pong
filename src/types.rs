@@ -842,14 +842,15 @@ mod components {
     pub struct Wall {
         pub ends: ((R32, R32), (R32, R32)),
         pub thickness: R32,
+        pub color: (R32, R32, R32, R32),
     }
 
     impl Wall {
         pub fn end_a(&self) -> Vec2 {
-            Wall::f32_2tuple_from_r32_2tuple(&self.ends.0)
+            Wall::vec2_from_r32_2tuple(&self.ends.0)
         }
         pub fn end_b(&self) -> Vec2 {
-            Wall::f32_2tuple_from_r32_2tuple(&self.ends.1)
+            Wall::vec2_from_r32_2tuple(&self.ends.1)
         }
         pub fn thickness(&self) -> f32 {
             self.thickness.into_inner()
@@ -874,9 +875,9 @@ mod components {
                 Y = 1,
             }
 
-            fn get_extreme<F, I>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> f32
+            fn get_extreme<F>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> f32
             where
-                F: Fn(Iter<R32>) -> Option<R32>,
+                F: Fn(Iter<R32>) -> Option<&R32>,
             {
                 let l = vertices.len();
                 assert!(l > 0);
@@ -885,7 +886,15 @@ mod components {
                 func(
                     vertices
                         .iter()
-                        .map(|e| R32::from(e.iter_fields().nth(coord as usize).unwrap()))
+                        .map(|e| {
+                            R32::from(
+                                *e.iter_fields()
+                                    .nth(coord as usize)
+                                    .unwrap()
+                                    .downcast_ref::<f32>()
+                                    .unwrap(),
+                            )
+                        })
                         .collect::<Vec<R32>>()
                         .iter(),
                 )
@@ -893,39 +902,21 @@ mod components {
                 .into_inner()
             }
 
-            let x_min = vertices
-                .iter()
-                .map(|e| R32::from(e.x))
-                .min()
-                .unwrap()
-                .into_inner();
-            let x_max = vertices
-                .iter()
-                .map(|e| R32::from(e.x))
-                .max()
-                .unwrap()
-                .into_inner();
-            let y_min = vertices
-                .iter()
-                .map(|e| R32::from(e.y))
-                .min()
-                .unwrap()
-                .into_inner();
-            let y_max = vertices
-                .iter()
-                .map(|e| R32::from(e.y))
-                .max()
-                .unwrap()
-                .into_inner();
+            let x_min = get_extreme(vertices, Iterator::min, Coordinates::X);
+            let x_max = get_extreme(vertices, Iterator::max, Coordinates::X);
+            let y_min = get_extreme(vertices, Iterator::min, Coordinates::Y);
+            let y_max = get_extreme(vertices, Iterator::max, Coordinates::Y);
+
+            let x_delta = x_max - x_min;
+            let y_delta = y_max - y_min;
+
+            Vec2::new(x_delta, y_delta)
         }
-        fn f32_2tuple_from_r32_2tuple(r32_tuple: &(R32, R32)) -> Vec2 {
-            let t = r32_tuple
-                .to_vec()
-                .iter()
-                .map(|x| x.into_inner())
-                .collect_tuple()
-                .unwrap();
-            Vec2::new(t.0, t.1)
+        fn vec2_from_r32_2tuple(r32_tuple: &(R32, R32)) -> Vec2 {
+            let r32: Vec<f32> = r32_tuple.to_vec().iter().map(|x| x.into_inner()).collect();
+            let mut my_array: [f32; 2];
+            my_array.iter_mut().set_from(r32);
+            Vec2::from_array(my_array)
         }
     }
 }
