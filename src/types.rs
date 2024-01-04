@@ -30,12 +30,10 @@ mod resources {
 mod parameters {
     use bevy::prelude::*;
     use decorum::R32;
-    use itertools::Itertools;
     use serde::{Deserialize, Serialize};
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
     use toml::to_string;
-    use tuple_conv::RepeatedTuple as _;
 
     use super::components::{Paddle, Player, Wall};
 
@@ -780,6 +778,8 @@ mod regular_polygon {
 }
 
 mod components {
+    use std::slice::Iter;
+
     use bevy::prelude::*;
     use decorum::R32;
     use itertools::Itertools;
@@ -874,15 +874,23 @@ mod components {
                 Y = 1,
             }
 
-            fn get_extreme<F, I>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> I::Item
+            fn get_extreme<F, I>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> f32
             where
-                F: Fn(I) -> I::Item,
-                I: Iterator + Sized,
-                I::Item: Ord,
+                F: Fn(Iter<R32>) -> Option<R32>,
             {
-                func(vertices.iter().map(|e| R32::from(e.x)))
-                    .unwrap()
-                    .into_inner();
+                let l = vertices.len();
+                assert!(l > 0);
+                assert!((coord as usize) < l);
+
+                func(
+                    vertices
+                        .iter()
+                        .map(|e| R32::from(e.iter_fields().nth(coord as usize).unwrap()))
+                        .collect::<Vec<R32>>()
+                        .iter(),
+                )
+                .unwrap()
+                .into_inner()
             }
 
             let x_min = vertices
