@@ -74,7 +74,7 @@ pub mod components {
             .iter()
             .map(|e| e.into_inner())
             .collect::<Vec<f32>>();
-        let mut my_array: [f32; 3];
+        let mut my_array: [f32; 3] = [f32::NAN; 3];
         my_array.iter_mut().set_from(r32);
         Vec3::from_array(my_array)
     }
@@ -131,14 +131,15 @@ pub mod components {
             let top_right = end_b + (right * self.thickness());
             let vertices = (bottom_left, bottom_right, top_left, top_right).to_vec();
 
+            #[derive(Copy, Clone)]
             enum Coordinates {
                 X = 0,
                 Y = 1,
             }
 
-            fn get_extreme<F>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> f32
+            fn get_extreme<'a, F>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> f32
             where
-                F: Fn(Iter<R32>) -> Option<&R32>,
+                F: Fn(Iter<R32>) -> Option<&'a R32>,
             {
                 let l = vertices.len();
                 assert!(l > 0);
@@ -409,14 +410,10 @@ pub mod parameters {
                 // x is dynamic
                 let y: f32 = 0.;
                 let z = 0.;
-                let speed = 0.;
+                let speed = 500.;
                 let color_rgba = (0.3, 0.3, 0.7, 1.);
 
-                let paddle = |
-                    x: f32,
-                    bounds: Vec<(f32, f32)>,
-                    wall_that_gives_points: usize,
-                | {
+                let paddle = |x: f32, bounds: Vec<(f32, f32)>, wall_that_gives_points: usize| {
                     // Transform into R32, so we can Serialize, Deserialize and have Eq (required by trait States)
                     let width = R32::from(width);
                     let height = R32::from(height);
@@ -447,54 +444,19 @@ pub mod parameters {
                         color_rgba,
                         wall_that_gives_points,
                     }
-                }
+                };
 
                 let x_1 = -100.;
                 let bounds_1 = ((-100., -100.), (-100., 100.)).to_vec();
                 let wall_that_gives_points_1 = 0;
-                let paddle_1 = paddle(
-                    x_1,
-                    bounds_1,
-                    wall_that_gives_points_1,
-                );
+                let paddle_1 = paddle(x_1, bounds_1, wall_that_gives_points_1);
 
-                let paddle_2 = {
-                    let wall_that_gives_points = 0;
-
-                    let width = width;
-                    let height = height;
-                    let x = x_right_wall
-                        - thickness / 2.
-                        - gap_between_paddle_and_vertical_wall
-                        - width / 2.;
-                    let y = y;
-                    let z = z;
-                    let (neg_bounds, pos_bounds) = {
-                        let x_min = x;
-                        let x_max = x;
-                        let y_min = y_min;
-                        let y_max = y_max;
-                        ((x_min, y_min), (x_max, y_max))
-                    };
-                    let speed = speed;
-                    let color = color;
-
-                    Paddle {
-                        width,
-                        height,
-                        x,
-                        y,
-                        z,
-                        neg_bounds,
-                        pos_bounds,
-                        speed,
-                        color_rgba: color,
-                    }
-                };
+                let x_2 = 100.;
+                let bounds_2 = ((100., -100.), (100., 100.)).to_vec();
+                let wall_that_gives_points_2 = 1;
+                let paddle_2 = paddle(x_2, bounds_2, wall_that_gives_points_2);
 
                 let paddles = vec![paddle_1, paddle_2];
-
-                let speed = 500.;
                 // Result
                 vec![Level { walls, paddles }]
             };
