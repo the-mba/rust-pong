@@ -56,7 +56,7 @@ mod parameters {
 
     #[derive(Clone, Serialize, Deserialize)]
     pub enum Effect {
-        Move(Vec4),
+        Move(Vec3),
         Nothing,
     }
 
@@ -67,6 +67,19 @@ mod parameters {
             .map(|x| R32::from(*x))
             .collect_tuple()
             .expect("Should be 2 arguments")
+    }
+
+    fn color_to_r32_tuple(c: &Color) -> (R32, R32, R32, R32) {
+        match *c {
+            Color::Rgba { .. } => c.as_rgba_f32(),
+            Color::Hsla { .. } => c.as_hsla_f32(),
+            Color::Lcha { .. } => c.as_lcha_f32(),
+            Color::RgbaLinear { .. } => c.as_linear_rgba_f32(),
+        }
+        .iter()
+        .map(|x| R32::from(*x))
+        .collect_tuple()
+        .unwrap()
     }
 
     pub fn wrong_toml(reason: &str) {
@@ -223,6 +236,7 @@ mod parameters {
                     let neg_bounds = vec2_to_r32_tuple(&neg_bounds);
                     let pos_bounds = vec2_to_r32_tuple(&pos_bounds);
                     let velocity = vec2_to_r32_tuple(&velocity);
+                    let color = color_to_r32_tuple(&color);
 
                     Paddle {
                         width,
@@ -233,7 +247,7 @@ mod parameters {
                         neg_bounds,
                         pos_bounds,
                         velocity,
-                        color,
+                        color_rgba: color,
                     }
                 };
                 let paddle_2 = {
@@ -255,11 +269,16 @@ mod parameters {
                     let velocity = velocity;
                     let color = color;
 
-                    let width = OrderedFloat(width);
-                    let height = OrderedFloat(height);
-                    let x = OrderedFloat(x);
-                    let y = OrderedFloat(y);
-                    let z = OrderedFloat(z);
+                    let width = R32::from(width);
+                    let height = R32::from(height);
+                    let x = R32::from(x);
+                    let y = R32::from(y);
+                    let z = R32::from(z);
+                    let neg_bounds = vec2_to_r32_tuple(&neg_bounds);
+                    let pos_bounds = vec2_to_r32_tuple(&pos_bounds);
+                    let velocity = vec2_to_r32_tuple(&velocity);
+                    let color = color_to_r32_tuple(&color);
+
                     Paddle {
                         width,
                         height,
@@ -269,7 +288,7 @@ mod parameters {
                         neg_bounds,
                         pos_bounds,
                         velocity,
-                        color,
+                        color_rgba: color,
                     }
                 };
 
@@ -735,6 +754,8 @@ mod components {
     use bevy::prelude::*;
     use decorum::R32;
     use serde::{Deserialize, Serialize};
+    use tuple_conv::RepeatedTuple as _;
+    use itertools:Itertools;
 
     use super::parameters::Control;
 
@@ -762,10 +783,16 @@ mod components {
         pub x: R32,
         pub y: R32,
         pub z: R32,
-        pub neg_bounds: Vec2,
+        pub neg_bounds: (R32, R32),
         pub pos_bounds: (R32, R32),
         pub velocity: (R32, R32),
-        pub color: (R32, R32, R32, R32),
+        pub color_rgba: (R32, R32, R32, R32),
+    }
+
+    fn vec3_from_r32_tuple(r32_tuple: &(R32, R32, R32)) -> Vec3 {
+        let my_array: [f32; 3];
+        my_array.iter_mut().set_from(r32_tuple.to_vec());
+        Vec3::from_array(my_array)
     }
 
     impl Paddle {
