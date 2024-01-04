@@ -868,10 +868,23 @@ mod components {
             let top_left = end_b + (left * self.thickness());
             let top_right = end_b + (right * self.thickness());
             let vertices = (bottom_left, bottom_right, top_left, top_right).to_vec();
+
             enum Coordinates {
-                X,
-                Y,
+                X = 0,
+                Y = 1,
             }
+
+            fn get_extreme<F, I>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> I::Item
+            where
+                F: Fn(I) -> I::Item,
+                I: Iterator + Sized,
+                I::Item: Ord,
+            {
+                func(vertices.iter().map(|e| R32::from(e.x)))
+                    .unwrap()
+                    .into_inner();
+            }
+
             let x_min = vertices
                 .iter()
                 .map(|e| R32::from(e.x))
