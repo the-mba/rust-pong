@@ -60,28 +60,6 @@ mod parameters {
         Nothing,
     }
 
-    fn r32_tuple_from_vec2(v: &Vec2) -> (R32, R32) {
-        (v.x, v.y)
-            .to_vec()
-            .iter()
-            .map(|x| R32::from(*x))
-            .collect_tuple()
-            .expect("Should be 2 arguments")
-    }
-
-    fn r32_tuple_from_color(c: &Color) -> (R32, R32, R32, R32) {
-        match *c {
-            Color::Rgba { .. } => c.as_rgba_f32(),
-            Color::Hsla { .. } => c.as_hsla_f32(),
-            Color::Lcha { .. } => c.as_lcha_f32(),
-            Color::RgbaLinear { .. } => c.as_linear_rgba_f32(),
-        }
-        .iter()
-        .map(|x| R32::from(*x))
-        .collect_tuple()
-        .unwrap()
-    }
-
     pub fn wrong_toml(reason: &str) {
         panic!("Unvalid TOML file structure [{path}] ({reason}), delete file and a valid one will be generated.",
                 path=PARAMETERS_FILE_PATH, reason=reason)
@@ -182,11 +160,27 @@ mod parameters {
                 let height = 120.;
                 // x is dynamic
                 let gap_between_paddle_and_vertical_wall = 100.;
-                let y = 0.;
+                let y: f32 = 0.;
                 let z = 0.;
                 let gap_between_paddle_and_horizontal_wall = 10.;
-                let velocity = (R32::from(0.), R32::from(0.));
-                let color = Color::rgb(0.3, 0.3, 0.7);
+                let velocity = (0., 0.);
+                let color = (0.3, 0.3, 0.7, 1.);
+
+                let width = R32::from(width);
+                let height = R32::from(height);
+                let gap_between_paddle_and_vertical_wall =
+                    R32::from(gap_between_paddle_and_vertical_wall);
+                let y = R32::from(y);
+                let z = R32::from(z);
+                let gap_between_paddle_and_horizontal_wall =
+                    R32::from(gap_between_paddle_and_horizontal_wall);
+                let velocity = (R32::from(velocity.0), R32::from(velocity.1));
+                let color = (
+                    R32::from(color.0),
+                    R32::from(color.1),
+                    R32::from(color.2),
+                    R32::from(color.3),
+                );
 
                 let y_min = y_down_wall
                     + thickness / 2.
@@ -215,17 +209,6 @@ mod parameters {
                     };
                     let velocity = velocity;
                     let color = color;
-
-                    // Transform into R32
-                    let width = R32::from(width);
-                    let height = R32::from(height);
-                    let x = R32::from(x);
-                    let y = R32::from(y);
-                    let z = R32::from(z);
-                    let neg_bounds = neg_bounds;
-                    let pos_bounds = pos_bounds;
-                    let velocity = r32_tuple_from_vec2(&velocity);
-                    let color = r32_tuple_from_color(&color);
 
                     Paddle {
                         width,
@@ -257,16 +240,6 @@ mod parameters {
                     };
                     let velocity = velocity;
                     let color = color;
-
-                    let width = R32::from(width);
-                    let height = R32::from(height);
-                    let x = R32::from(x);
-                    let y = R32::from(y);
-                    let z = R32::from(z);
-                    let neg_bounds = neg_bounds;
-                    let pos_bounds = pos_bounds;
-                    let velocity = r32_tuple_from_vec2(&velocity);
-                    let color = r32_tuple_from_color(&color);
 
                     Paddle {
                         width,
@@ -803,10 +776,42 @@ mod components {
         pub ends: ((R32, R32), (R32, R32)),
         pub thickness: R32,
     }
+
+    impl Wall {
+        pub fn translation(&self) -> Vec2 {
+            
+            let ends: ((f32, f32), (f32, f32)) = self
+                .ends
+                .to_vec()
+                .iter()
+                .map(|xx| f32_2tuple_from_r32_2tuple(xx))
+                .collect_tuple()
+                .unwrap();
+            let end_a = ends.0;
+            let end_b = ends.1;
+            let end_a = Vec2::new(end_a.0, end_a.1);
+            let end_b = Vec2::new(end_b.0, end_b.1);
+            let center = (end_a + end_b) / 2.;
+            center
+        }
+        pub fn scale(&self) -> Vec2 {
+            let 
+        }
+        fn f32_2tuple_from_r32_2tuple(r32_tuple: &(R32, R32)) -> (f32, f32) {
+            r32_tuple
+                .to_vec()
+                .iter()
+                .map(|x| x.into_inner())
+                .collect_tuple()
+                .unwrap()
+        }
+    }
 }
 
 mod bundles {
     use bevy::prelude::*;
+
+    use super::components::{Collider, Player, Wall};
 
     #[derive(Bundle)]
     pub struct PlayerBundle {
@@ -816,12 +821,12 @@ mod bundles {
     }
 
     impl PlayerBundle {
-        pub fn new(player: &Player, translation: Vec3, color: Color) -> Self {
+        pub fn new(player: &Player, translation: Vec3, scale: Vec3, color: Color) -> Self {
             Self {
                 sprite_bundle: SpriteBundle {
                     transform: Transform {
                         translation,
-                        scale: player.paddle.size(),
+                        scale,
                         ..default()
                     },
                     sprite: Sprite { color, ..default() },
@@ -846,17 +851,21 @@ mod bundles {
     impl WallBundle {
         // This "builder method" allows us to reuse logic across our wall entities,
         // making our code easier to read and less prone to bugs when we change the logic
-        pub fn new(location: WallLocation, parameters: &Parameters) -> WallBundle {
+        pub fn new(wall: &Wall) -> WallBundle {
+            let translation = wall.translation().extend(0.);
+            let scale = wall.scale().extend(1.);
+            let color = wall.color;
+            let color = Color::rgba(color.0, color.1, color.2, color.3);
             WallBundle {
                 sprite_bundle: SpriteBundle {
                     transform: Transform {
                         // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
                         // This is used to determine the order of our sprites
-                        translation: location.position(parameters).extend(0.0),
+                        translation,
                         // The z-scale of 2D objects must always be 1.0,
                         // or their ordering will be affected in surprising ways.
                         // See https://github.com/bevyengine/bevy/issues/4149
-                        scale: location.size(parameters).extend(1.0),
+                        scale,
                         ..default()
                     },
                     sprite: Sprite {
