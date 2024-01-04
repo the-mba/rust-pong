@@ -29,7 +29,6 @@ mod resources {
 }
 mod parameters {
     use bevy::prelude::*;
-    use ordered_float::OrderedFloat;
     use serde::{Deserialize, Serialize};
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
@@ -239,6 +238,12 @@ mod parameters {
                     };
                     let velocity = velocity;
                     let color = color;
+
+                    let width = OrderedFloat(width);
+                    let height = OrderedFloat(height);
+                    let x = OrderedFloat(x);
+                    let y = OrderedFloat(y);
+                    let z = OrderedFloat(z);
                     Paddle {
                         width,
                         height,
@@ -712,10 +717,13 @@ mod parameters {
 
 mod components {
     use bevy::prelude::*;
-    use ordered_float::OrderedFloat;
+    use decorum::{ConstrainedFloat, FiniteConstraint};
     use serde::{Deserialize, Serialize};
 
     use super::parameters::Control;
+
+    type MyF32 = ConstrainedFloat<f32, FiniteConstraint>;
+
     #[derive(Clone, Serialize, Deserialize, Component)]
     pub struct Player {
         pub controls: Vec<Control>,
@@ -732,16 +740,17 @@ mod components {
 
     #[derive(Component)]
     pub struct Brick;
+
     #[derive(Debug, Copy, Clone, Serialize, Deserialize, Component, Eq, PartialEq, Hash)]
     pub struct Paddle {
-        pub width: OrderedFloat,
-        pub height: OrderedFloat,
-        pub x: OrderedFloat,
-        pub y: OrderedFloat,
-        pub z: OrderedFloat,
-        pub neg_bounds: Vec2,
-        pub pos_bounds: Vec2,
-        pub velocity: Vec2,
+        pub width: MyF32,
+        pub height: MyF32,
+        pub x: MyF32,
+        pub y: MyF32,
+        pub z: MyF32,
+        pub neg_bounds: (MyF32, MyF32),
+        pub pos_bounds: (MyF32, MyF32),
+        pub velocity: (MyF32, MyF32),
         pub color: Color,
     }
 
