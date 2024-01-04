@@ -1,9 +1,6 @@
 //! A simplified implementation of the classic game "Breakout".
 
-pub mod parameters;
-use parameters::*;
 pub mod types;
-use types::*;
 
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::{
@@ -11,6 +8,11 @@ use bevy::{
     sprite::collide_aabb::{collide, Collision},
     sprite::MaterialMesh2dBundle,
 };
+
+use types::bundles::PlayerBundle;
+use types::events::CollisionEvent;
+use types::parameters::parameters_from_toml;
+use types::resources::{CollisionSound, Scoreboards};
 
 fn main() {
     println!("debug_assertions is {:?}", cfg!(debug_assertions));
@@ -23,10 +25,8 @@ fn main() {
         .add_state::<menu::AppState>()
         .add_systems(OnEnter(menu::AppState::Menu), menu::setup_menu)
         .insert_resource(Scoreboards {
-            scores: vec![0; parameters.players.len()],
+            scores: vec![0.; parameters.players.len()],
         })
-        .insert_resource(parameters.clone())
-        .insert_resource(Speed(parameters.ball.speed))
         .insert_resource(ClearColor(parameters.colors.background))
         .add_event::<CollisionEvent>()
         .add_systems(OnEnter(menu::AppState::Menu), menu::setup_menu)
@@ -205,6 +205,7 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     let parameters = parameters_from_toml();
+    let level = parameters.levels.get(0).unwrap();
 
     // Camera
     commands.spawn(Camera2dBundle::default());
@@ -214,11 +215,15 @@ fn setup(
     commands.insert_resource(CollisionSound(ball_collision_sound));
 
     // Paddle
-    let paddle_x_1 = parameters.paddle.left_bound(&parameters) + parameters.paddle.width / 2;
-    let paddle_x_2 = parameters.paddle.right_bound(&parameters) - parameters.paddle.width / 2;
 
-    for player in &parameters.players {
-        commands.spawn(parameters.paddle);
+    for (i, player) in parameters.players.iter().enumerate() {
+        let paddle = level.paddles.get(i).unwrap();
+        commands.spawn(PlayerBundle::new(
+            player,
+            paddle.position(),
+            paddle.size(),
+            paddle.color(),
+        ));
     }
 
     // Ball

@@ -1,7 +1,4 @@
-use crate::*;
-use serde::{Deserialize, Serialize};
-
-mod states {
+pub mod states {
     use super::parameters::Level;
     use bevy::prelude::*;
 
@@ -12,13 +9,14 @@ mod states {
         Level1(Level),
     }
 }
-mod events {
+
+pub mod events {
     use bevy::prelude::*;
     #[derive(Event)]
     pub struct CollisionEvent;
 }
 
-mod resources {
+pub mod resources {
     use bevy::prelude::*;
     #[derive(Resource)]
     pub struct CollisionSound(pub Handle<AudioSource>);
@@ -27,14 +25,244 @@ mod resources {
         pub scores: Vec<f32>,
     }
 }
-mod parameters {
+
+pub mod components {
+    use std::slice::Iter;
+
+    use bevy::prelude::*;
+    use decorum::R32;
+    use itertools::Itertools;
+    use serde::{Deserialize, Serialize};
+    use tuple_conv::RepeatedTuple as _;
+
+    use super::parameters::Control;
+
+    #[derive(Clone, Serialize, Deserialize, Component)]
+    pub struct Player {
+        pub controls: Vec<Control>,
+    }
+
+    #[derive(Component)]
+    pub struct Ball;
+
+    #[derive(Component, Deref, DerefMut, Debug)]
+    pub struct Velocity(pub Vec2);
+
+    #[derive(Component)]
+    pub struct Collider;
+
+    #[derive(Component)]
+    pub struct Brick;
+
+    #[derive(Debug, Copy, Clone, Serialize, Deserialize, Component, Eq, PartialEq, Hash)]
+    pub struct Paddle {
+        pub width: R32,
+        pub height: R32,
+        pub x: R32,
+        pub y: R32,
+        pub z: R32,
+        pub neg_bounds: (R32, R32),
+        pub pos_bounds: (R32, R32),
+        pub velocity: (R32, R32),
+        pub color_rgba: (R32, R32, R32, R32),
+    }
+
+    fn vec3_from_r32_tuple(r32_tuple: &(R32, R32, R32)) -> Vec3 {
+        let a = r32_tuple.0.into_inner();
+        let r32 = r32_tuple
+            .to_vec()
+            .iter()
+            .map(|x| x.into_inner())
+            .collect::<Vec<f32>>();
+        let mut my_array: [f32; 3];
+        my_array.iter_mut().set_from(r32);
+        Vec3::from_array(my_array)
+    }
+
+    impl Paddle {
+        pub fn position(&self) -> Vec3 {
+            vec3_from_r32_tuple(&(self.x, self.y, self.z))
+        }
+        pub fn size(&self) -> Vec3 {
+            vec3_from_r32_tuple(&(self.width, self.height, R32::from(0.)))
+        }
+        pub fn color(&self) -> Color {
+            Color::rgba(
+                self.color_rgba.0.into_inner(),
+                self.color_rgba.1.into_inner(),
+                self.color_rgba.2.into_inner(),
+                self.color_rgba.3.into_inner(),
+            )
+        }
+    }
+
+    #[derive(Debug, Clone, Component, Serialize, Deserialize, Eq, PartialEq, Hash)]
+    pub struct Wall {
+        pub ends: ((R32, R32), (R32, R32)),
+        pub thickness: R32,
+        pub color: (R32, R32, R32, R32),
+    }
+
+    impl Wall {
+        pub fn end_a(&self) -> Vec2 {
+            Wall::vec2_from_r32_2tuple(&self.ends.0)
+        }
+        pub fn end_b(&self) -> Vec2 {
+            Wall::vec2_from_r32_2tuple(&self.ends.1)
+        }
+        pub fn thickness(&self) -> f32 {
+            self.thickness.into_inner()
+        }
+        pub fn translation(&self) -> Vec2 {
+            (self.end_a() + self.end_b()) / 2.
+        }
+        pub fn scale(&self) -> Vec2 {
+            let end_a = self.end_a();
+            let end_b = self.end_b();
+            let dir_a_to_b = (end_b - end_a).normalize_or_zero();
+            let left = dir_a_to_b.perp();
+            let right = dir_a_to_b.perp().perp().perp();
+            let bottom_left = end_a + (left * self.thickness());
+            let bottom_right = end_a + (right * self.thickness());
+            let top_left = end_b + (left * self.thickness());
+            let top_right = end_b + (right * self.thickness());
+            let vertices = (bottom_left, bottom_right, top_left, top_right).to_vec();
+
+            enum Coordinates {
+                X = 0,
+                Y = 1,
+            }
+
+            fn get_extreme<F>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> f32
+            where
+                F: Fn(Iter<R32>) -> Option<&R32>,
+            {
+                let l = vertices.len();
+                assert!(l > 0);
+                assert!((coord as usize) < l);
+
+                func(
+                    vertices
+                        .iter()
+                        .map(|e| {
+                            R32::from(
+                                *e.iter_fields()
+                                    .nth(coord as usize)
+                                    .unwrap()
+                                    .downcast_ref::<f32>()
+                                    .unwrap(),
+                            )
+                        })
+                        .collect::<Vec<R32>>()
+                        .iter(),
+                )
+                .unwrap()
+                .into_inner()
+            }
+
+            let x_min = get_extreme(vertices, Iterator::min, Coordinates::X);
+            let x_max = get_extreme(vertices, Iterator::max, Coordinates::X);
+            let y_min = get_extreme(vertices, Iterator::min, Coordinates::Y);
+            let y_max = get_extreme(vertices, Iterator::max, Coordinates::Y);
+
+            let x_delta = x_max - x_min;
+            let y_delta = y_max - y_min;
+
+            Vec2::new(x_delta, y_delta)
+        }
+        fn vec2_from_r32_2tuple(r32_tuple: &(R32, R32)) -> Vec2 {
+            let r32: Vec<f32> = r32_tuple.to_vec().iter().map(|x| x.into_inner()).collect();
+            let mut my_array: [f32; 2];
+            my_array.iter_mut().set_from(r32);
+            Vec2::from_array(my_array)
+        }
+    }
+}
+
+pub mod bundles {
+    use bevy::prelude::*;
+
+    use super::components::{Collider, Player, Wall};
+
+    #[derive(Bundle)]
+    pub struct PlayerBundle {
+        pub sprite_bundle: SpriteBundle,
+        pub collider: Collider,
+        pub player: Player,
+    }
+
+    impl PlayerBundle {
+        pub fn new(player: &Player, translation: Vec3, scale: Vec3, color: Color) -> Self {
+            Self {
+                sprite_bundle: SpriteBundle {
+                    transform: Transform {
+                        translation,
+                        scale,
+                        ..default()
+                    },
+                    sprite: Sprite { color, ..default() },
+                    ..default()
+                },
+                collider: Collider,
+                player: player.clone(),
+            }
+        }
+    }
+
+    // This bundle is a collection of the components that define a "wall" in our game
+    #[derive(Bundle)]
+    pub struct WallBundle {
+        // You can nest bundles inside of other bundles like this
+        // Allowing you to compose their functionality
+        pub sprite_bundle: SpriteBundle,
+        pub collider: Collider,
+        pub wall: Wall,
+    }
+
+    impl WallBundle {
+        // This "builder method" allows us to reuse logic across our wall entities,
+        // making our code easier to read and less prone to bugs when we change the logic
+        pub fn new(wall: &Wall) -> WallBundle {
+            let wall = *wall;
+            let translation = wall.translation().extend(0.);
+            let scale = wall.scale().extend(1.);
+            let color = wall.color;
+            let color = (
+                color.0.into_inner(),
+                color.1.into_inner(),
+                color.2.into_inner(),
+                color.3.into_inner(),
+            );
+            let color = Color::rgba(color.0, color.1, color.2, color.3);
+            WallBundle {
+                sprite_bundle: SpriteBundle {
+                    transform: Transform {
+                        // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
+                        // This is used to determine the order of our sprites
+                        translation,
+                        // The z-scale of 2D objects must always be 1.0,
+                        // or their ordering will be affected in surprising ways.
+                        // See https://github.com/bevyengine/bevy/issues/4149
+                        scale,
+                        ..default()
+                    },
+                    sprite: Sprite { color, ..default() },
+                    ..default()
+                },
+                collider: Collider,
+                wall,
+            }
+        }
+    }
+}
+
+pub mod parameters {
     use bevy::prelude::*;
     use decorum::R32;
     use serde::{Deserialize, Serialize};
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
     use toml::to_string;
-    use tuple_conv::RepeatedTuple as _;
 
     use super::components::{Paddle, Player, Wall};
 
@@ -721,13 +949,12 @@ mod parameters {
         pub background: Color,
         pub ball: Color,
         pub brick: Color,
-        pub wall: Color,
         pub text: Color,
         pub score: Color,
     }
 }
 
-mod regular_polygon {
+pub mod regular_polygon {
     use bevy::render::{
         mesh::{Indices, Mesh},
         render_resource::PrimitiveTopology,
@@ -790,223 +1017,6 @@ mod regular_polygon {
                 .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
                 .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
                 .with_indices(Some(Indices::U32(indices)))
-        }
-    }
-}
-
-mod components {
-    use std::slice::Iter;
-
-    use bevy::prelude::*;
-    use decorum::R32;
-    use itertools::Itertools;
-    use serde::{Deserialize, Serialize};
-    use tuple_conv::RepeatedTuple as _;
-
-    use super::parameters::Control;
-
-    #[derive(Clone, Serialize, Deserialize, Component)]
-    pub struct Player {
-        pub controls: Vec<Control>,
-    }
-
-    #[derive(Component)]
-    pub struct Ball;
-
-    #[derive(Component, Deref, DerefMut, Debug)]
-    pub struct Velocity(pub Vec2);
-
-    #[derive(Component)]
-    pub struct Collider;
-
-    #[derive(Component)]
-    pub struct Brick;
-
-    #[derive(Debug, Copy, Clone, Serialize, Deserialize, Component, Eq, PartialEq, Hash)]
-    pub struct Paddle {
-        pub width: R32,
-        pub height: R32,
-        pub x: R32,
-        pub y: R32,
-        pub z: R32,
-        pub neg_bounds: (R32, R32),
-        pub pos_bounds: (R32, R32),
-        pub velocity: (R32, R32),
-        pub color_rgba: (R32, R32, R32, R32),
-    }
-
-    fn vec3_from_r32_tuple(r32_tuple: &(R32, R32, R32)) -> Vec3 {
-        let a = r32_tuple.0.into_inner();
-        let r32 = r32_tuple
-            .to_vec()
-            .iter()
-            .map(|x| x.into_inner())
-            .collect::<Vec<f32>>();
-        let mut my_array: [f32; 3];
-        my_array.iter_mut().set_from(r32);
-        Vec3::from_array(my_array)
-    }
-
-    impl Paddle {
-        pub fn position(&self) -> Vec3 {
-            vec3_from_r32_tuple(&(self.x, self.y, self.z))
-        }
-        pub fn size(&self) -> Vec3 {
-            vec3_from_r32_tuple(&(self.width, self.height, R32::from(0.)))
-        }
-    }
-    #[derive(Debug, Clone, Component, Serialize, Deserialize, Eq, PartialEq, Hash)]
-    pub struct Wall {
-        pub ends: ((R32, R32), (R32, R32)),
-        pub thickness: R32,
-        pub color: (R32, R32, R32, R32),
-    }
-
-    impl Wall {
-        pub fn end_a(&self) -> Vec2 {
-            Wall::vec2_from_r32_2tuple(&self.ends.0)
-        }
-        pub fn end_b(&self) -> Vec2 {
-            Wall::vec2_from_r32_2tuple(&self.ends.1)
-        }
-        pub fn thickness(&self) -> f32 {
-            self.thickness.into_inner()
-        }
-        pub fn translation(&self) -> Vec2 {
-            (self.end_a() + self.end_b()) / 2.
-        }
-        pub fn scale(&self) -> Vec2 {
-            let end_a = self.end_a();
-            let end_b = self.end_b();
-            let dir_a_to_b = (end_b - end_a).normalize_or_zero();
-            let left = dir_a_to_b.perp();
-            let right = dir_a_to_b.perp().perp().perp();
-            let bottom_left = end_a + (left * self.thickness());
-            let bottom_right = end_a + (right * self.thickness());
-            let top_left = end_b + (left * self.thickness());
-            let top_right = end_b + (right * self.thickness());
-            let vertices = (bottom_left, bottom_right, top_left, top_right).to_vec();
-
-            enum Coordinates {
-                X = 0,
-                Y = 1,
-            }
-
-            fn get_extreme<F>(vertices: Vec<Vec2>, func: F, coord: Coordinates) -> f32
-            where
-                F: Fn(Iter<R32>) -> Option<&R32>,
-            {
-                let l = vertices.len();
-                assert!(l > 0);
-                assert!((coord as usize) < l);
-
-                func(
-                    vertices
-                        .iter()
-                        .map(|e| {
-                            R32::from(
-                                *e.iter_fields()
-                                    .nth(coord as usize)
-                                    .unwrap()
-                                    .downcast_ref::<f32>()
-                                    .unwrap(),
-                            )
-                        })
-                        .collect::<Vec<R32>>()
-                        .iter(),
-                )
-                .unwrap()
-                .into_inner()
-            }
-
-            let x_min = get_extreme(vertices, Iterator::min, Coordinates::X);
-            let x_max = get_extreme(vertices, Iterator::max, Coordinates::X);
-            let y_min = get_extreme(vertices, Iterator::min, Coordinates::Y);
-            let y_max = get_extreme(vertices, Iterator::max, Coordinates::Y);
-
-            let x_delta = x_max - x_min;
-            let y_delta = y_max - y_min;
-
-            Vec2::new(x_delta, y_delta)
-        }
-        fn vec2_from_r32_2tuple(r32_tuple: &(R32, R32)) -> Vec2 {
-            let r32: Vec<f32> = r32_tuple.to_vec().iter().map(|x| x.into_inner()).collect();
-            let mut my_array: [f32; 2];
-            my_array.iter_mut().set_from(r32);
-            Vec2::from_array(my_array)
-        }
-    }
-}
-
-mod bundles {
-    use bevy::prelude::*;
-
-    use super::components::{Collider, Player, Wall};
-
-    #[derive(Bundle)]
-    pub struct PlayerBundle {
-        pub sprite_bundle: SpriteBundle,
-        pub collider: Collider,
-        pub player: Player,
-    }
-
-    impl PlayerBundle {
-        pub fn new(player: &Player, translation: Vec3, scale: Vec3, color: Color) -> Self {
-            Self {
-                sprite_bundle: SpriteBundle {
-                    transform: Transform {
-                        translation,
-                        scale,
-                        ..default()
-                    },
-                    sprite: Sprite { color, ..default() },
-                    ..default()
-                },
-                collider: Collider,
-                player: player.clone(),
-            }
-        }
-    }
-
-    // This bundle is a collection of the components that define a "wall" in our game
-    #[derive(Bundle)]
-    pub struct WallBundle {
-        // You can nest bundles inside of other bundles like this
-        // Allowing you to compose their functionality
-        pub sprite_bundle: SpriteBundle,
-        pub collider: Collider,
-        pub wall: Wall,
-    }
-
-    impl WallBundle {
-        // This "builder method" allows us to reuse logic across our wall entities,
-        // making our code easier to read and less prone to bugs when we change the logic
-        pub fn new(wall: &Wall) -> WallBundle {
-            let translation = wall.translation().extend(0.);
-            let scale = wall.scale().extend(1.);
-            let color = wall.color;
-            let color = Color::rgba(color.0, color.1, color.2, color.3);
-            WallBundle {
-                sprite_bundle: SpriteBundle {
-                    transform: Transform {
-                        // We need to convert our Vec2 into a Vec3, by giving it a z-coordinate
-                        // This is used to determine the order of our sprites
-                        translation,
-                        // The z-scale of 2D objects must always be 1.0,
-                        // or their ordering will be affected in surprising ways.
-                        // See https://github.com/bevyengine/bevy/issues/4149
-                        scale,
-                        ..default()
-                    },
-                    sprite: Sprite {
-                        color: parameters.colors.wall,
-                        ..default()
-                    },
-                    ..default()
-                },
-                collider: Collider,
-                wall: Wall(location),
-            }
         }
     }
 }
