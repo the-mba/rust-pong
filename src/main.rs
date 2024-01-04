@@ -9,7 +9,8 @@ use bevy::{
     sprite::MaterialMesh2dBundle,
 };
 
-use types::bundles::PlayerBundle;
+use types::bundles::{PlayerBundle, WallBundle};
+use types::components::{Ball, Velocity};
 use types::events::CollisionEvent;
 use types::parameters::parameters_from_toml;
 use types::resources::{CollisionSound, Scoreboards};
@@ -215,7 +216,6 @@ fn setup(
     commands.insert_resource(CollisionSound(ball_collision_sound));
 
     // Paddle
-
     for (i, player) in parameters.players.iter().enumerate() {
         let paddle = level.paddles.get(i).unwrap();
         commands.spawn(PlayerBundle::new(
@@ -288,10 +288,9 @@ fn setup(
     );
 
     // Walls
-    commands.spawn(WallBundle::new(WallLocation::Left, &parameters));
-    commands.spawn(WallBundle::new(WallLocation::Right, &parameters));
-    commands.spawn(WallBundle::new(WallLocation::Down, &parameters));
-    commands.spawn(WallBundle::new(WallLocation::Up, &parameters));
+    for wall in level.walls {
+        commands.spawn(WallBundle::new(&wall));
+    }
 
     // Goal Bricks
     let minimum_gap_between_bricks_and_vertical_walls = parameters
