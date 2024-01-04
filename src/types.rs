@@ -54,17 +54,17 @@ pub mod components {
     #[derive(Component)]
     pub struct Brick;
 
-    #[derive(Debug, Copy, Clone, Serialize, Deserialize, Component, Eq, PartialEq, Hash)]
+    #[derive(Debug, Clone, Serialize, Deserialize, Component, Eq, PartialEq, Hash)]
     pub struct Paddle {
         pub width: R32,
         pub height: R32,
         pub x: R32,
         pub y: R32,
         pub z: R32,
-        pub neg_bounds: (R32, R32),
-        pub pos_bounds: (R32, R32),
-        pub velocity: (R32, R32),
+        pub bounds: Vec<(R32, R32)>,
+        pub speed: R32,
         pub color_rgba: (R32, R32, R32, R32),
+        pub wall_that_gives_points: usize,
     }
 
     fn vec3_from_r32_tuple(r32_tuple: &(R32, R32, R32)) -> Vec3 {
@@ -72,7 +72,7 @@ pub mod components {
         let r32 = r32_tuple
             .to_vec()
             .iter()
-            .map(|x| x.into_inner())
+            .map(|e| e.into_inner())
             .collect::<Vec<f32>>();
         let mut my_array: [f32; 3];
         my_array.iter_mut().set_from(r32);
@@ -85,6 +85,9 @@ pub mod components {
         }
         pub fn size(&self) -> Vec3 {
             vec3_from_r32_tuple(&(self.width, self.height, R32::from(0.)))
+        }
+        pub fn speed(&self) -> f32 {
+            self.speed.into_inner()
         }
         pub fn color(&self) -> Color {
             Color::rgba(
@@ -171,7 +174,7 @@ pub mod components {
             Vec2::new(x_delta, y_delta)
         }
         fn vec2_from_r32_2tuple(r32_tuple: &(R32, R32)) -> Vec2 {
-            let r32: Vec<f32> = r32_tuple.to_vec().iter().map(|x| x.into_inner()).collect();
+            let r32: Vec<f32> = r32_tuple.to_vec().iter().map(|e| e.into_inner()).collect();
             let mut my_array: [f32; 2];
             my_array.iter_mut().set_from(r32);
             Vec2::from_array(my_array)
@@ -263,6 +266,7 @@ pub mod parameters {
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
     use toml::to_string;
+    use tuple_conv::RepeatedTuple as _;
 
     use super::components::{Paddle, Player, Wall};
 
@@ -403,56 +407,40 @@ pub mod parameters {
                 let width = 20.;
                 let height = 120.;
                 // x is dynamic
-                let gap_between_paddle_and_vertical_wall = 100.;
                 let y: f32 = 0.;
                 let z = 0.;
-                let gap_between_paddle_and_horizontal_wall = 10.;
-                let velocity = (0., 0.);
-                let color = (0.3, 0.3, 0.7, 1.);
+                let speed = 0.;
+                let color_rgba = (0.3, 0.3, 0.7, 1.);
 
-                let width = R32::from(width);
-                let height = R32::from(height);
-                let gap_between_paddle_and_vertical_wall =
-                    R32::from(gap_between_paddle_and_vertical_wall);
-                let y = R32::from(y);
-                let z = R32::from(z);
-                let gap_between_paddle_and_horizontal_wall =
-                    R32::from(gap_between_paddle_and_horizontal_wall);
-                let velocity = (R32::from(velocity.0), R32::from(velocity.1));
-                let color = (
-                    R32::from(color.0),
-                    R32::from(color.1),
-                    R32::from(color.2),
-                    R32::from(color.3),
-                );
-
-                let y_min = y_down_wall
-                    + thickness / 2.
-                    + gap_between_paddle_and_horizontal_wall
-                    + height / 2.;
-                let y_max = y_up_wall
-                    - thickness / 2.
-                    - gap_between_paddle_and_horizontal_wall
-                    - height / 2.;
-
-                let paddle_1 = {
-                    let width = width;
-                    let height = height;
-                    let x = x_left_wall
-                        + thickness / 2.
-                        + gap_between_paddle_and_vertical_wall
-                        + width / 2.;
-                    let y = y;
-                    let z = z;
-                    let (neg_bounds, pos_bounds) = {
-                        let x_min = x;
-                        let x_max = x;
-                        let y_min = y_min;
-                        let y_max = y_max;
-                        ((x_min, y_min), (x_max, y_max))
-                    };
-                    let velocity = velocity;
-                    let color = color;
+                fn paddle(
+                    width: f32,
+                    height: f32,
+                    x: f32,
+                    y: f32,
+                    z: f32,
+                    bounds: Vec<(f32, f32)>,
+                    speed: f32,
+                    color_rgba: (f32, f32, f32, f32),
+                    wall_that_gives_points: usize,
+                ) -> Paddle {
+                    // Transform into R32, so we can Serialize, Deserialize and have Eq (required by trait States)
+                    let width = R32::from(width);
+                    let height = R32::from(height);
+                    let x = R32::from(x);
+                    let y = R32::from(y);
+                    let z = R32::from(z);
+                    let bounds = bounds
+                        .to_vec()
+                        .iter()
+                        .map(|e| (R32::from(e.0), R32::from(e.1)))
+                        .collect::<Vec<(R32, R32)>>();
+                    let speed = R32::from(speed);
+                    let color_rgba = (
+                        R32::from(color_rgba.0),
+                        R32::from(color_rgba.1),
+                        R32::from(color_rgba.2),
+                        R32::from(color_rgba.3),
+                    );
 
                     Paddle {
                         width,
@@ -460,13 +448,31 @@ pub mod parameters {
                         x,
                         y,
                         z,
-                        neg_bounds,
-                        pos_bounds,
-                        velocity,
-                        color_rgba: color,
+                        bounds,
+                        speed,
+                        color_rgba,
+                        wall_that_gives_points,
                     }
-                };
+                }
+
+                let x_1 = -100.;
+                let bounds_1 = ((-100., -100.), (-100., 100.)).to_vec();
+                let wall_that_gives_points_1 = 0;
+                let paddle_1 = paddle(
+                    width,
+                    height,
+                    x_1,
+                    y,
+                    z,
+                    bounds_1,
+                    speed,
+                    color_rgba,
+                    wall_that_gives_points_1,
+                );
+
                 let paddle_2 = {
+                    let wall_that_gives_points = 0;
+
                     let width = width;
                     let height = height;
                     let x = x_right_wall
@@ -482,7 +488,7 @@ pub mod parameters {
                         let y_max = y_max;
                         ((x_min, y_min), (x_max, y_max))
                     };
-                    let velocity = velocity;
+                    let speed = speed;
                     let color = color;
 
                     Paddle {
@@ -493,7 +499,7 @@ pub mod parameters {
                         z,
                         neg_bounds,
                         pos_bounds,
-                        velocity,
+                        speed,
                         color_rgba: color,
                     }
                 };

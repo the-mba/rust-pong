@@ -10,9 +10,9 @@ use bevy::{
 };
 
 use types::bundles::{PlayerBundle, WallBundle};
-use types::components::{Ball, Velocity};
+use types::components::{Ball, Brick, Collider, Paddle, Player, Velocity, Wall};
 use types::events::CollisionEvent;
-use types::parameters::parameters_from_toml;
+use types::parameters::{parameters_from_toml, Effect};
 use types::resources::{CollisionSound, Scoreboards};
 
 fn main() {
@@ -53,7 +53,6 @@ fn main() {
                 move_players,
                 check_for_collisions,
                 play_collision_sound,
-                update_velocity,
             )
                 // `chain`ing systems together runs them in order
                 .chain(),
@@ -292,7 +291,7 @@ fn setup(
         commands.spawn(WallBundle::new(&wall));
     }
 
-    // Goal Bricks
+    /* // Goal Bricks
     let minimum_gap_between_bricks_and_vertical_walls = parameters
         .misc
         .minimum_gap_between_bricks_and_vertical_walls;
@@ -406,7 +405,7 @@ fn setup(
                 Collider,
             ));
         }
-    }
+    } */
 }
 
 fn move_players(
@@ -431,21 +430,15 @@ fn move_players(
         if let Some(delta) = delta {
             // Calculate the new horizontal paddle position based on player input
             let new_paddle_position = transform.translation
-                + delta.normalize_or_zero() * paddle.speed * time.delta_seconds();
+                + delta.normalize_or_zero() * paddle.speed() * time.delta_seconds();
 
-            // Update the paddle position,
+            /* // Update the paddle position,
             // making sure it doesn't cause the paddle to leave the arena
             transform.translation = new_paddle_position.clamp(
                 paddle.neg_bounds(parameters.as_ref()),
                 paddle.pos_bounds(parameters.as_ref()),
-            );
+            ); */
         }
-    }
-}
-
-fn update_velocity(mut query: Query<&mut Velocity>, speed: Res<Speed>) {
-    for mut velocity in &mut query {
-        velocity.as_mut().0 = velocity.normalize() * speed.0;
     }
 }
 
@@ -453,12 +446,12 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity, Option<&Ball>)>, 
     for (mut transform, velocity, maybe_ball) in &mut query {
         transform.translation.x += velocity.x * time.delta_seconds();
         transform.translation.y += velocity.y * time.delta_seconds();
-        if maybe_ball.is_some() {
+        /* if maybe_ball.is_some() {
             transform.translation = transform.translation.clamp(
                 parameters.ball.neg_bounds(parameters.as_ref()),
                 parameters.ball.pos_bounds(parameters.as_ref()),
             );
-        }
+        } */
     }
 }
 
@@ -478,7 +471,6 @@ fn check_for_collisions(
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>, Option<&Wall>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
-    mut speed: ResMut<Speed>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
@@ -494,14 +486,10 @@ fn check_for_collisions(
                 transform.scale.truncate(),
             );
             if let Some(collision) = collision {
-                if speed.0 < parameters.ball.max_speed {
-                    speed.0 *= 1.01;
-                }
-
                 // Sends a collision event so that other systems can react to the collision
                 collision_events.send_default();
 
-                if let Some(Wall(wall_hit)) = maybe_wall {
+                if let Some(wall) = maybe_wall {
                     for (i, _wall) in parameters
                         .players
                         .iter()
