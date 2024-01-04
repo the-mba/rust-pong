@@ -712,6 +712,73 @@ mod parameters {
     }
 }
 
+mod regular_polygon {
+    use bevy::render::{
+        mesh::{Indices, Mesh},
+        render_resource::PrimitiveTopology,
+    };
+
+    /// A regular polygon in the `XY` plane
+    #[derive(Debug, Copy, Clone)]
+    pub struct RegularPolygon {
+        /// Circumscribed radius in the `XY` plane.
+        ///
+        /// In other words, the vertices of this polygon will all touch a circle of this radius.
+        pub radius: f32,
+        /// Number of sides.
+        pub sides: usize,
+    }
+
+    impl Default for RegularPolygon {
+        fn default() -> Self {
+            Self {
+                radius: 0.5,
+                sides: 6,
+            }
+        }
+    }
+
+    impl RegularPolygon {
+        /// Creates a regular polygon in the `XY` plane
+        pub fn new(radius: f32, sides: usize) -> Self {
+            Self { radius, sides }
+        }
+    }
+
+    impl From<RegularPolygon> for Mesh {
+        fn from(polygon: RegularPolygon) -> Self {
+            let RegularPolygon { radius, sides } = polygon;
+
+            debug_assert!(sides > 2, "RegularPolygon requires at least 3 sides.");
+
+            let mut positions = Vec::with_capacity(sides);
+            let mut normals = Vec::with_capacity(sides);
+            let mut uvs = Vec::with_capacity(sides);
+
+            let step = std::f32::consts::TAU / sides as f32;
+            for i in 0..sides {
+                let theta = std::f32::consts::FRAC_PI_2 - i as f32 * step;
+                let (sin, cos) = theta.sin_cos();
+
+                positions.push([cos * radius, sin * radius, 0.0]);
+                normals.push([0.0, 0.0, 1.0]);
+                uvs.push([0.5 * (cos + 1.0), 1.0 - 0.5 * (sin + 1.0)]);
+            }
+
+            let mut indices = Vec::with_capacity((sides - 2) * 3);
+            for i in 1..(sides as u32 - 1) {
+                indices.extend_from_slice(&[0, i + 1, i]);
+            }
+
+            Mesh::new(PrimitiveTopology::TriangleList)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+                .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)
+                .with_indices(Some(Indices::U32(indices)))
+        }
+    }
+}
+
 mod components {
     use bevy::prelude::*;
     use decorum::R32;
@@ -800,6 +867,35 @@ mod components {
             let bottom_right = end_a + (right * self.thickness());
             let top_left = end_b + (left * self.thickness());
             let top_right = end_b + (right * self.thickness());
+            let vertices = (bottom_left, bottom_right, top_left, top_right).to_vec();
+            enum Coordinates {
+                X,
+                Y,
+            }
+            let x_min = vertices
+                .iter()
+                .map(|e| R32::from(e.x))
+                .min()
+                .unwrap()
+                .into_inner();
+            let x_max = vertices
+                .iter()
+                .map(|e| R32::from(e.x))
+                .max()
+                .unwrap()
+                .into_inner();
+            let y_min = vertices
+                .iter()
+                .map(|e| R32::from(e.y))
+                .min()
+                .unwrap()
+                .into_inner();
+            let y_max = vertices
+                .iter()
+                .map(|e| R32::from(e.y))
+                .max()
+                .unwrap()
+                .into_inner();
         }
         fn f32_2tuple_from_r32_2tuple(r32_tuple: &(R32, R32)) -> Vec2 {
             let t = r32_tuple
