@@ -34,6 +34,7 @@ mod parameters {
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
     use toml::to_string;
+    use tuple_conv::RepeatedTuple as _;
 
     use super::components::{Paddle, Player, Wall};
 
@@ -128,28 +129,45 @@ mod parameters {
 
             let levels = {
                 // Walls
-                let x_left_wall = R32::from(-600.);
-                let x_right_wall = R32::from(600.);
-                let y_down_wall = R32::from(-300.);
-                let y_up_wall = R32::from(300.);
-                let thickness = R32::from(10.);
+                let x_left_wall = -600.;
+                let x_right_wall = 600.;
+                let y_down_wall = -300.;
+                let y_up_wall = 300.;
+                let thickness = 10.;
+                let color: (f32, f32, f32, f32) = (0.8, 0.8, 0.8, 1.);
+
+                let x_left_wall = R32::from(x_left_wall);
+                let x_right_wall = R32::from(x_right_wall);
+                let y_down_wall = R32::from(y_down_wall);
+                let y_up_wall = R32::from(y_up_wall);
+                let thickness = R32::from(thickness);
+                let color = (
+                    R32::from(color.0),
+                    R32::from(color.1),
+                    R32::from(color.2),
+                    R32::from(color.3),
+                );
 
                 let walls = vec![
                     Wall {
                         ends: ((x_left_wall, y_up_wall), (x_left_wall, y_down_wall)),
                         thickness,
+                        color,
                     },
                     Wall {
                         ends: ((x_right_wall, y_up_wall), (x_left_wall, y_down_wall)),
                         thickness,
+                        color,
                     },
                     Wall {
                         ends: ((x_left_wall, y_down_wall), (x_right_wall, y_down_wall)),
                         thickness,
+                        color,
                     },
                     Wall {
                         ends: ((x_left_wall, y_up_wall), (x_right_wall, y_up_wall)),
                         thickness,
+                        color,
                     },
                 ];
 
@@ -273,7 +291,6 @@ mod parameters {
                 background: Color::rgb(0.9, 0.9, 0.9),
                 ball: Color::rgb(1.0, 0.5, 0.5),
                 brick: Color::rgb(0.5, 0.5, 1.0),
-                wall: Color::rgb(0.8, 0.8, 0.8),
                 text: Color::rgb(0.5, 0.5, 1.0),
                 score: Color::rgb(1.0, 0.5, 0.5),
             };
