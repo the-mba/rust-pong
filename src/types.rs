@@ -60,7 +60,7 @@ mod parameters {
         Nothing,
     }
 
-    fn vec2_to_r32_tuple(v: &Vec2) -> (R32, R32) {
+    fn r32_tuple_from_vec2(v: &Vec2) -> (R32, R32) {
         (v.x, v.y)
             .to_vec()
             .iter()
@@ -69,7 +69,7 @@ mod parameters {
             .expect("Should be 2 arguments")
     }
 
-    fn color_to_r32_tuple(c: &Color) -> (R32, R32, R32, R32) {
+    fn r32_tuple_from_color(c: &Color) -> (R32, R32, R32, R32) {
         match *c {
             Color::Rgba { .. } => c.as_rgba_f32(),
             Color::Hsla { .. } => c.as_hsla_f32(),
@@ -152,39 +152,27 @@ mod parameters {
 
             let levels = {
                 // Walls
-                let x_left_wall: f32 = -600.;
-                let x_right_wall: f32 = 600.;
-                let y_down_wall: f32 = -300.;
-                let y_up_wall: f32 = 300.;
-                let thickness: f32 = 10.;
+                let x_left_wall = R32::from(-600.);
+                let x_right_wall = R32::from(600.);
+                let y_down_wall = R32::from(-300.);
+                let y_up_wall = R32::from(300.);
+                let thickness = R32::from(10.);
 
                 let walls = vec![
                     Wall {
-                        ends: (
-                            Vec2::new(x_left_wall, y_up_wall),
-                            Vec2::new(x_left_wall, y_down_wall),
-                        ),
+                        ends: ((x_left_wall, y_up_wall), (x_left_wall, y_down_wall)),
                         thickness,
                     },
                     Wall {
-                        ends: (
-                            Vec2::new(x_right_wall, y_up_wall),
-                            Vec2::new(x_left_wall, y_down_wall),
-                        ),
+                        ends: ((x_right_wall, y_up_wall), (x_left_wall, y_down_wall)),
                         thickness,
                     },
                     Wall {
-                        ends: (
-                            Vec2::new(x_left_wall, y_down_wall),
-                            Vec2::new(x_right_wall, y_down_wall),
-                        ),
+                        ends: ((x_left_wall, y_down_wall), (x_right_wall, y_down_wall)),
                         thickness,
                     },
                     Wall {
-                        ends: (
-                            Vec2::new(x_left_wall, y_up_wall),
-                            Vec2::new(x_right_wall, y_up_wall),
-                        ),
+                        ends: ((x_left_wall, y_up_wall), (x_right_wall, y_up_wall)),
                         thickness,
                     },
                 ];
@@ -197,7 +185,7 @@ mod parameters {
                 let y = 0.;
                 let z = 0.;
                 let gap_between_paddle_and_horizontal_wall = 10.;
-                let velocity = Vec2::new(0., 0.);
+                let velocity = (R32::from(0.), R32::from(0.));
                 let color = Color::rgb(0.3, 0.3, 0.7);
 
                 let y_min = y_down_wall
@@ -223,20 +211,21 @@ mod parameters {
                         let x_max = x;
                         let y_min = y_min;
                         let y_max = y_max;
-                        (Vec2::new(x_min, y_min), Vec2::new(x_max, y_max))
+                        ((x_min, y_min), (x_max, y_max))
                     };
                     let velocity = velocity;
                     let color = color;
 
+                    // Transform into R32
                     let width = R32::from(width);
                     let height = R32::from(height);
                     let x = R32::from(x);
                     let y = R32::from(y);
                     let z = R32::from(z);
-                    let neg_bounds = vec2_to_r32_tuple(&neg_bounds);
-                    let pos_bounds = vec2_to_r32_tuple(&pos_bounds);
-                    let velocity = vec2_to_r32_tuple(&velocity);
-                    let color = color_to_r32_tuple(&color);
+                    let neg_bounds = neg_bounds;
+                    let pos_bounds = pos_bounds;
+                    let velocity = r32_tuple_from_vec2(&velocity);
+                    let color = r32_tuple_from_color(&color);
 
                     Paddle {
                         width,
@@ -264,7 +253,7 @@ mod parameters {
                         let x_max = x;
                         let y_min = y_min;
                         let y_max = y_max;
-                        (Vec2::new(x_min, y_min), Vec2::new(x_max, y_max))
+                        ((x_min, y_min), (x_max, y_max))
                     };
                     let velocity = velocity;
                     let color = color;
@@ -274,10 +263,10 @@ mod parameters {
                     let x = R32::from(x);
                     let y = R32::from(y);
                     let z = R32::from(z);
-                    let neg_bounds = vec2_to_r32_tuple(&neg_bounds);
-                    let pos_bounds = vec2_to_r32_tuple(&pos_bounds);
-                    let velocity = vec2_to_r32_tuple(&velocity);
-                    let color = color_to_r32_tuple(&color);
+                    let neg_bounds = neg_bounds;
+                    let pos_bounds = pos_bounds;
+                    let velocity = r32_tuple_from_vec2(&velocity);
+                    let color = r32_tuple_from_color(&color);
 
                     Paddle {
                         width,
@@ -753,9 +742,9 @@ mod parameters {
 mod components {
     use bevy::prelude::*;
     use decorum::R32;
+    use itertools::Itertools;
     use serde::{Deserialize, Serialize};
     use tuple_conv::RepeatedTuple as _;
-    use itertools:Itertools;
 
     use super::parameters::Control;
 
@@ -790,23 +779,29 @@ mod components {
     }
 
     fn vec3_from_r32_tuple(r32_tuple: &(R32, R32, R32)) -> Vec3 {
-        let my_array: [f32; 3];
-        my_array.iter_mut().set_from(r32_tuple.to_vec());
+        let a = r32_tuple.0.into_inner();
+        let r32 = r32_tuple
+            .to_vec()
+            .iter()
+            .map(|x| x.into_inner())
+            .collect::<Vec<f32>>();
+        let mut my_array: [f32; 3];
+        my_array.iter_mut().set_from(r32);
         Vec3::from_array(my_array)
     }
 
     impl Paddle {
         pub fn position(&self) -> Vec3 {
-            Vec3::new(self.x, self.y, self.z)
+            vec3_from_r32_tuple(&(self.x, self.y, self.z))
         }
         pub fn size(&self) -> Vec3 {
-            Vec3::new(self.width, self.height, 0.)
+            vec3_from_r32_tuple(&(self.width, self.height, R32::from(0.)))
         }
     }
     #[derive(Debug, Clone, Component, Serialize, Deserialize, Eq, PartialEq, Hash)]
     pub struct Wall {
-        pub ends: (Vec2, Vec2),
-        pub thickness: f32,
+        pub ends: ((R32, R32), (R32, R32)),
+        pub thickness: R32,
     }
 }
 
