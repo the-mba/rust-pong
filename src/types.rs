@@ -717,7 +717,7 @@ mod parameters {
 
 mod components {
     use bevy::prelude::*;
-    use decorum::{ConstrainedFloat, FiniteConstraint};
+    use decorum::{constraint::FiniteConstraint, ConstrainedFloat};
     use serde::{Deserialize, Serialize};
 
     use super::parameters::Control;
@@ -751,7 +751,7 @@ mod components {
         pub neg_bounds: (MyF32, MyF32),
         pub pos_bounds: (MyF32, MyF32),
         pub velocity: (MyF32, MyF32),
-        pub color: Color,
+        pub color: (MyF32, MyF32, MyF32, MyF32),
     }
 
     impl Paddle {
