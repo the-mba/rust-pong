@@ -412,17 +412,11 @@ pub mod parameters {
                 let speed = 0.;
                 let color_rgba = (0.3, 0.3, 0.7, 1.);
 
-                fn paddle(
-                    width: f32,
-                    height: f32,
+                let paddle = |
                     x: f32,
-                    y: f32,
-                    z: f32,
                     bounds: Vec<(f32, f32)>,
-                    speed: f32,
-                    color_rgba: (f32, f32, f32, f32),
                     wall_that_gives_points: usize,
-                ) -> Paddle {
+                | {
                     // Transform into R32, so we can Serialize, Deserialize and have Eq (required by trait States)
                     let width = R32::from(width);
                     let height = R32::from(height);
@@ -459,14 +453,8 @@ pub mod parameters {
                 let bounds_1 = ((-100., -100.), (-100., 100.)).to_vec();
                 let wall_that_gives_points_1 = 0;
                 let paddle_1 = paddle(
-                    width,
-                    height,
                     x_1,
-                    y,
-                    z,
                     bounds_1,
-                    speed,
-                    color_rgba,
                     wall_that_gives_points_1,
                 );
 

@@ -468,6 +468,7 @@ fn update_scoreboards(scoreboard: Res<Scoreboards>, mut query: Query<&mut Text>)
 fn check_for_collisions(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboards>,
+    mut players_query: Query<&Player>,
     mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>, Option<&Wall>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
@@ -490,10 +491,10 @@ fn check_for_collisions(
                 collision_events.send_default();
 
                 if let Some(wall) = maybe_wall {
-                    for (i, _wall) in parameters
+                    for (i, _wall) in players_query.iter().map(|e| e.wall_that_gives_points).enumerate()parameters
                         .players
                         .iter()
-                        .map(|x| &x.wall_that_gives_points)
+                        .map(|e| &x.wall_that_gives_points)
                         .enumerate()
                     {
                         if wall_hit == _wall {
