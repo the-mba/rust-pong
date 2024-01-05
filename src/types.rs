@@ -167,7 +167,7 @@ pub mod components {
                         .iter()
                         .map(|e| {
                             R32::from(
-                                *e.iter_fields()
+                                *e.iter_fields().next().unwrap().do
                                     .nth(coord as usize)
                                     .unwrap()
                                     .downcast_ref::<f32>()
@@ -435,21 +435,8 @@ pub mod parameters {
                 }
 
                 // PADDLES
-                // Assert lengths
-                assert!(PADDLES_WIDTH.len() == PADDLES_N);
-                assert!(PADDLES_HEIGHT.len() == PADDLES_N);
-                assert!(PADDLES_X.len() == PADDLES_N);
-                assert!(PADDLES_Y.len() == PADDLES_N);
-                assert!(PADDLES_Z.len() == PADDLES_N);
-                assert!(PADDLES_BOUNDS.len() == PADDLES_N);
-                assert!(PADDLES_SPEED.len() == PADDLES_N);
-                assert!(PADDLES_COLOR_RGBA.len() == PADDLES_N);
-                // Transform into R32 while positivizing unnegativazible parameters
-                let paddles_width = PADDLES_WIDTH.iter().map(|e| e.abs()).collect();
-                let paddles_height = PADDLES_HEIGHT.iter().map(|e| e.abs()).collect();
-                let speed = PADDLES_SPEED.iter().map(|e| e.abs()).collect();
-                let color_rgba = PADDLES_COLOR_RGBA.iter().map(|ee| ee.to_vec().iter().map(|e| ))
-
+                // Transform into R32
+                let a = Color::rgb();
                 let paddle = |x: f32, bounds: Vec<(f32, f32)>, wall_that_gives_points: usize| {
                     // Transform into R32, so we can Serialize, Deserialize and have Eq (required by trait States)
                     let PADDLES_WIDTH = R32::from(PADDLES_WIDTH);
