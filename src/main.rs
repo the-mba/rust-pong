@@ -24,40 +24,32 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(FrameTimeDiagnosticsPlugin)
         .add_state::<menu::AppState>()
-        .add_systems(OnEnter(menu::AppState::Menu), menu::setup_menu)
+        .add_event::<CollisionEvent>()
         .insert_resource(Scoreboards {
             scores: vec![0.; parameters.players.len()],
         })
         .insert_resource(ClearColor(parameters.colors.background))
-        .add_event::<CollisionEvent>()
         .add_systems(OnEnter(menu::AppState::Menu), menu::setup_menu)
-        // By contrast, update systems are stored in the `Update` schedule. They simply
-        // check the value of the `State<T>` resource to see if they should run each frame.
-        .add_systems(
-            Update,
-            menu::run_menu.run_if(in_state(menu::AppState::Menu)),
-        )
         .add_systems(OnExit(menu::AppState::Menu), menu::cleanup_menu)
-        .add_systems(OnEnter(menu::AppState::InGame), menu::setup_game)
-        .add_systems(
-            Update,
-            (menu::movement, menu::change_color).run_if(in_state(menu::AppState::InGame)),
-        )
-        .add_systems(Startup, setup)
-        // Add our gameplay simulation systems to the fixed timestep schedule
-        // which runs at 64 Hz by default
+        .add_systems(OnEnter(menu::AppState::InGame), setup_level)
         .add_systems(
             FixedUpdate,
             (
-                apply_velocity,
-                move_players,
-                check_for_collisions,
-                play_collision_sound,
-            )
-                // `chain`ing systems together runs them in order
-                .chain(),
+                menu::run_menu.run_if(in_state(menu::AppState::Menu)),
+                (
+                    menu::movement,
+                    menu::change_color,
+                    apply_velocity,
+                    move_players,
+                    check_for_collisions,
+                    play_collision_sound,
+                    update_scoreboards,
+                    bevy::window::close_on_esc,
+                )
+                    .chain()
+                    .run_if(in_state(menu::AppState::InGame)),
+            ),
         )
-        .add_systems(Update, (update_scoreboards, bevy::window::close_on_esc))
         .run();
 }
 
@@ -198,7 +190,7 @@ mod menu {
 }
 
 // Add the game's entities to our world
-fn setup(
+fn setup_level(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
@@ -234,7 +226,7 @@ fn setup(
                 .with_scale(parameters.ball.size),
             ..default()
         },
-        Ball,
+        parameters.ball,
         Velocity(parameters.ball.starting_velocity()),
     ));
 
@@ -409,7 +401,7 @@ fn setup(
 }
 
 fn move_players(
-    level: State<menu::AppState>,
+    //level: State<menu::AppState>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Transform, &Player, &Paddle)>,
     time: Res<Time>,
@@ -468,14 +460,13 @@ fn update_scoreboards(scoreboard: Res<Scoreboards>, mut query: Query<&mut Text>)
 fn check_for_collisions(
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboards>,
-    mut players_query: Query<&Player>,
-    mut ball_query: Query<(&mut Velocity, &Transform), With<Ball>>,
+    mut ball_query: Query<(&mut Velocity, &Transform, &Ball)>,
     collider_query: Query<(Entity, &Transform, Option<&Brick>, Option<&Wall>), With<Collider>>,
     mut collision_events: EventWriter<CollisionEvent>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    for (mut ball_velocity, ball_transform) in ball_query.iter_mut() {
+    for (mut ball_velocity, ball_transform, ball) in ball_query.iter_mut() {
         let ball_size = ball_transform.scale.truncate();
 
         // check collision with walls
@@ -489,12 +480,11 @@ fn check_for_collisions(
             if let Some(collision) = collision {
                 // Sends a collision event so that other systems can react to the collision
                 collision_events.send_default();
-
                 if let Some(wall) = maybe_wall {
-                    for (i, _wall) in players_query.iter().map(|e| e.wall_that_gives_points).enumerate()parameters
-                        .players
+                    todo!("Cuando haya añadido los states, coger de ahí el level y meter aquí la wall_that_gives_points");
+                    for (i, _wall) in players_query
                         .iter()
-                        .map(|e| &x.wall_that_gives_points)
+                        .map(|e| e.wall_that_gives_points)
                         .enumerate()
                     {
                         if wall_hit == _wall {
@@ -535,9 +525,7 @@ fn check_for_collisions(
                     ball_velocity.y = -ball_velocity.y;
                 }
 
-                if maybe_brick.is_some()
-                    && rand::random::<f32>() < parameters.ball.probability_to_duplicate
-                {
+                if maybe_brick.is_some() && rand::random::<f32>() < ball.probability_to_duplicate {
                     commands.spawn((
                         MaterialMesh2dBundle {
                             mesh: meshes.add(shape::Circle::default().into()).into(),

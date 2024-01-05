@@ -12,7 +12,7 @@ pub mod states {
 
 pub mod events {
     use bevy::prelude::*;
-    #[derive(Event)]
+    #[derive(Event, Default)]
     pub struct CollisionEvent;
 }
 
@@ -42,8 +42,22 @@ pub mod components {
         pub controls: Vec<Control>,
     }
 
-    #[derive(Component)]
-    pub struct Ball;
+    #[derive(Component, Clone, Serialize, Deserialize)]
+    pub struct Ball {
+        pub starting_position: Vec3,
+        pub starting_direction: Vec2,
+        pub speed: f32,
+        pub max_speed: f32,
+        pub size: Vec3,
+        pub probability_to_duplicate: f32,
+        pub padding_for_bounds: f32,
+    }
+
+    impl Ball {
+        pub fn starting_velocity(&self) -> Vec2 {
+            self.starting_direction.normalize() * self.speed
+        }
+    }
 
     #[derive(Component, Deref, DerefMut, Debug)]
     pub struct Velocity(pub Vec2);
@@ -269,7 +283,7 @@ pub mod parameters {
     use toml::to_string;
     use tuple_conv::RepeatedTuple as _;
 
-    use super::components::{Paddle, Player, Wall};
+    use super::components::{Ball, Paddle, Player, Wall};
 
     const PARAMETERS_FILE_PATH: &str = "parameters.toml";
     const ALWAYS_REWRITE_TOML: bool = cfg!(debug_assertions);
@@ -350,7 +364,7 @@ pub mod parameters {
                 },
             ];
 
-            let ball = ParametersBall {
+            let ball = Ball {
                 starting_position: Vec3::new(0.0, -50.0, -1.0),
                 starting_direction: Vec2::new(0.5, -0.5),
                 speed: 400.0,
@@ -513,7 +527,7 @@ pub mod parameters {
     pub struct Parameters {
         pub players: Vec<Player>,
         pub misc: ParametersMisc,
-        pub ball: ParametersBall,
+        pub ball: Ball,
         pub levels: Vec<Level>,
         pub brick: ParametersBrick,
         pub scoreboard: ParametersScoreboard,
@@ -862,23 +876,6 @@ pub mod parameters {
                 MyKeyCode::Paste => KeyCode::Paste,
                 MyKeyCode::Cut => KeyCode::Cut,
             }
-        }
-    }
-
-    #[derive(Clone, Serialize, Deserialize)]
-    pub struct ParametersBall {
-        pub starting_position: Vec3,
-        pub starting_direction: Vec2,
-        pub speed: f32,
-        pub max_speed: f32,
-        pub size: Vec3,
-        pub probability_to_duplicate: f32,
-        pub padding_for_bounds: f32,
-    }
-
-    impl ParametersBall {
-        pub fn starting_velocity(&self) -> Vec2 {
-            self.starting_direction.normalize() * self.speed
         }
     }
 
