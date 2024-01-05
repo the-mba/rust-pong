@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use bevy::reflect::Reflect;
+use bevy::reflect::{Reflect, ReflectRef};
 use tuple_conv::RepeatedTuple as _;
 
 // PADDLES: parameters
@@ -29,14 +29,28 @@ impl ParametersPaddles {
         let s = Self::new();
         let l = s.x.len();
 
-        for field in s.iter_fields() {
-            if let Vec { buf, len } = field.downcast_ref().unwrap() {
+        let info = s.get_info();
+        let reflected = reflect_component.reflect(s).unwrap();
+        let ReflectRef::Struct(reflected) = reflected.reflect_ref() else {
+            unreachable!()
+        };
+        /* for (i, field) in reflected.iter_fields().enumerate() {
+            ui.label(format!(
+                "{:?} : {:?}",
+                reflected.name_at(i).unwrap(),
+                reflected.field_at(i).unwrap()
+            ));
+        } */
+
+        for (i, _) in s.iter_fields().enumerate() {
+            /* if let Vec { buf, len } = field.downcast_ref().unwrap() {
                 continue;
             }
             if let Some(field) = field.downcast_ref::<Vec<f32>>() {
                 //.downcast_ref::<Vec<f32>>()
                 assert!(field.len() == s.n);
-            }
+            } */
+            let f = s.field_at(i).unwrap().len();
         }
 
         s
@@ -47,7 +61,7 @@ enum VecTypes {
     VecF32(Vec<f32>),
 }
 
-#[derive(Reflect)]
+#[derive(FromReflect, Reflect, Component, Default)]
 pub struct ParametersPaddles {
     pub n: usize,
     pub width: Vec<f32>,
