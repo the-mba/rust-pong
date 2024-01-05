@@ -280,6 +280,7 @@ pub mod bundles {
 pub mod parameters {
     use bevy::prelude::*;
     use decorum::R32;
+    use itertools::{Itertools, izip}};
     use serde::{Deserialize, Serialize};
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
@@ -378,58 +379,52 @@ pub mod parameters {
             };
 
             let levels = {
-                // Walls
+                // WALLS: parameters
                 let n: usize = 4;
-                let walls: Vec<(f32, f32)> = ((-600., -300.), (-600., 300.), (600., 300.), (600., -300.)).to_vec();
-                assert!(walls.len() == n);
-                let thickness: Vec<f32> = vec![10.; n];
-                assert!(thickness.len() == n);
-                let color = vec![(0.8, 0.8, 0.8, 1.).to_vec(); n];
-                assert!(color.len() == n);
+                let ends: Vec<(f32, f32)> =
+                    ((-600., -300.), (-600., 300.), (600., 300.), (600., -300.)).to_vec();
+                let thicknesses: Vec<f32> = vec![10.; n];
+                let colors: Vec<(f32, f32, f32, f32)> = vec![(0.8, 0.8, 0.8, 1.); n];
 
-                let walls = walls.iter().map(|ee| ee.to_vec().iter().map(|e| R32::from(*e)).collect()).collect();
-
-                let x_left_wall = R32::from(x_left_wall);
-                let x_right_wall = R32::from(x_right_wall);
-                let y_down_wall = R32::from(y_down_wall);
-                let y_up_wall = R32::from(y_up_wall);
-                let thickness = R32::from(thickness);
-                let color = (
-                    R32::from(color.0),
-                    R32::from(color.1),
-                    R32::from(color.2),
-                    R32::from(color.3),
-                );
-
-                let walls = {
-                    let walls;
-                    for i in 0..4 {
-
-                    }
-                }
+                // WALLS: checking parameters
+                assert!(ends.len() == n);
+                assert!(thicknesses.len() == n);
+                assert!(colors.len() == n);
                 
-                let walls = vec![
-                    Wall {
-                        ends: ((x_left_wall, y_up_wall), (x_left_wall, y_down_wall)),
+                // WALLS: convert to R32
+                let ends: Vec<(R32, R32)> = ends
+                    .iter()
+                    .map(|ee| {
+                        ee.to_vec()
+                            .iter()
+                            .map(|e| R32::from(*e))
+                            .collect_tuple()
+                            .unwrap()
+                    })
+                    .collect();
+                let thicknesses = thicknesses.iter().map(|e| R32::from(*e)).collect();
+                let colors = colors
+                    .iter()
+                    .map(|ee| {
+                        ee.to_vec()
+                            .iter()
+                            .map(|e| R32::from(*e))
+                            .collect_tuple()
+                            .unwrap()
+                    })
+                    .collect();
+
+                let walls: Vec<Wall> = Vec::new();
+                for (id, ends, thickness, color) in izip!((0..n), ends.zip(ends.iter().cycle().skip(1)), thickness, colors)
+                {
+                    let wall = Wall {
+                        id,
+                        ends,
                         thickness,
                         color,
-                    },
-                    Wall {
-                        ends: ((x_right_wall, y_up_wall), (x_left_wall, y_down_wall)),
-                        thickness,
-                        color,
-                    },
-                    Wall {
-                        ends: ((x_left_wall, y_down_wall), (x_right_wall, y_down_wall)),
-                        thickness,
-                        color,
-                    },
-                    Wall {
-                        ends: ((x_left_wall, y_up_wall), (x_right_wall, y_up_wall)),
-                        thickness,
-                        color,
-                    },
-                ];
+                    };
+                    walls.push(wall);
+                }
 
                 // Paddles
                 let width = 20.;
