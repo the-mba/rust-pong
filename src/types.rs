@@ -280,7 +280,7 @@ pub mod bundles {
 pub mod parameters {
     use bevy::prelude::*;
     use decorum::R32;
-    use itertools::{Itertools, izip}};
+    use itertools::{izip, Itertools};
     use serde::{Deserialize, Serialize};
     use std::{fs, io::Write};
     use std::{fs::File, path::Path};
@@ -390,7 +390,7 @@ pub mod parameters {
                 assert!(ends.len() == n);
                 assert!(thicknesses.len() == n);
                 assert!(colors.len() == n);
-                
+
                 // WALLS: convert to R32
                 let ends: Vec<(R32, R32)> = ends
                     .iter()
@@ -402,8 +402,8 @@ pub mod parameters {
                             .unwrap()
                     })
                     .collect();
-                let thicknesses = thicknesses.iter().map(|e| R32::from(*e)).collect();
-                let colors = colors
+                let thicknesses: Vec<R32> = thicknesses.iter().map(|e| R32::from(*e)).collect();
+                let colors: Vec<(R32, R32, R32, R32)> = colors
                     .iter()
                     .map(|ee| {
                         ee.to_vec()
@@ -414,9 +414,16 @@ pub mod parameters {
                     })
                     .collect();
 
-                let walls: Vec<Wall> = Vec::new();
-                for (id, ends, thickness, color) in izip!((0..n), ends.zip(ends.iter().cycle().skip(1)), thickness, colors)
-                {
+                // WALLS: construct
+                let mut walls: Vec<Wall> = Vec::new();
+                for (id, ends, thickness, color) in izip!(
+                    (0..n),
+                    ends.iter()
+                        .cloned()
+                        .zip(ends.iter().cloned().cycle().skip(1)),
+                    thicknesses,
+                    colors
+                ) {
                     let wall = Wall {
                         id,
                         ends,
@@ -426,14 +433,20 @@ pub mod parameters {
                     walls.push(wall);
                 }
 
-                // Paddles
-                let width = 20.;
-                let height = 120.;
+                // PADDLES: parameters
+                let width: f32 = 20.;
+                let height: f32 = 120.;
                 // x is dynamic
                 let y: f32 = 0.;
-                let z = 0.;
-                let speed = 500.;
-                let color_rgba = (0.3, 0.3, 0.7, 1.);
+                let z: f32 = 0.;
+                let speed: f32 = 500.;
+                let color_rgba: (f32, f32, f32, f32) = (0.3, 0.3, 0.7, 1.);
+
+                // Positivize unnegativazible parameters
+                let width = width.abs();
+                let height = height.abs();
+                let speed = speed.abs();
+                let color = Color::rgb(0., 0., 0.);
 
                 let paddle = |x: f32, bounds: Vec<(f32, f32)>, wall_that_gives_points: usize| {
                     // Transform into R32, so we can Serialize, Deserialize and have Eq (required by trait States)
