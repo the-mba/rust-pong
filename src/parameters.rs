@@ -25,17 +25,26 @@ impl ParametersPaddles {
         }
     }
 
-    pub fn get_verified<T: bevy::reflect::List + Reflect>() -> Self {
+    pub fn get_verified() -> Self {
         let s = Self::new();
+        let l = s.x.len();
 
         for field in s.iter_fields() {
-            if let Some(field) = field.downcast_ref::<T>() {
+            if let Vec { buf, len } = field.downcast_ref().unwrap() {
+                continue;
+            }
+            if let Some(field) = field.downcast_ref::<Vec<f32>>() {
+                //.downcast_ref::<Vec<f32>>()
                 assert!(field.len() == s.n);
             }
         }
 
         s
     }
+}
+
+enum VecTypes {
+    VecF32(Vec<f32>),
 }
 
 #[derive(Reflect)]
