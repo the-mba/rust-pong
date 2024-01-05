@@ -18,8 +18,10 @@ pub mod events {
 
 pub mod resources {
     use bevy::prelude::*;
+
     #[derive(Resource)]
     pub struct CollisionSound(pub Handle<AudioSource>);
+
     #[derive(Resource)]
     pub struct Scoreboards {
         pub scores: Vec<f32>,
@@ -115,6 +117,7 @@ pub mod components {
 
     #[derive(Debug, Clone, Component, Serialize, Deserialize, Eq, PartialEq, Hash)]
     pub struct Wall {
+        pub id: usize,
         pub ends: ((R32, R32), (R32, R32)),
         pub thickness: R32,
         pub color: (R32, R32, R32, R32),
@@ -376,12 +379,15 @@ pub mod parameters {
 
             let levels = {
                 // Walls
-                let x_left_wall = -600.;
-                let x_right_wall = 600.;
-                let y_down_wall = -300.;
-                let y_up_wall = 300.;
-                let thickness = 10.;
-                let color: (f32, f32, f32, f32) = (0.8, 0.8, 0.8, 1.);
+                let n: usize = 4;
+                let walls: Vec<(f32, f32)> = ((-600., -300.), (-600., 300.), (600., 300.), (600., -300.)).to_vec();
+                assert!(walls.len() == n);
+                let thickness: Vec<f32> = vec![10.; n];
+                assert!(thickness.len() == n);
+                let color = vec![(0.8, 0.8, 0.8, 1.).to_vec(); n];
+                assert!(color.len() == n);
+
+                let walls = walls.iter().map(|ee| ee.to_vec().iter().map(|e| R32::from(*e)).collect()).collect();
 
                 let x_left_wall = R32::from(x_left_wall);
                 let x_right_wall = R32::from(x_right_wall);
@@ -395,6 +401,13 @@ pub mod parameters {
                     R32::from(color.3),
                 );
 
+                let walls = {
+                    let walls;
+                    for i in 0..4 {
+
+                    }
+                }
+                
                 let walls = vec![
                     Wall {
                         ends: ((x_left_wall, y_up_wall), (x_left_wall, y_down_wall)),

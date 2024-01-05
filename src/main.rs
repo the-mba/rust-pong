@@ -14,6 +14,7 @@ use types::components::{Ball, Brick, Collider, Paddle, Player, Velocity, Wall};
 use types::events::CollisionEvent;
 use types::parameters::{parameters_from_toml, Effect};
 use types::resources::{CollisionSound, Scoreboards};
+use types::states::AppStates;
 
 fn main() {
     println!("debug_assertions is {:?}", cfg!(debug_assertions));
@@ -23,7 +24,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(FrameTimeDiagnosticsPlugin)
-        .add_state::<menu::AppState>()
+        .add_state::<AppStates>()
         .add_event::<CollisionEvent>()
         .insert_resource(Scoreboards {
             scores: vec![0.; parameters.players.len()],
@@ -401,7 +402,6 @@ fn setup_level(
 }
 
 fn move_players(
-    //level: State<menu::AppState>,
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Transform, &Player, &Paddle)>,
     time: Res<Time>,
@@ -424,12 +424,12 @@ fn move_players(
             let new_paddle_position = transform.translation
                 + delta.normalize_or_zero() * paddle.speed() * time.delta_seconds();
 
-            /* // Update the paddle position,
-            // making sure it doesn't cause the paddle to leave the arena
-            transform.translation = new_paddle_position.clamp(
-                paddle.neg_bounds(parameters.as_ref()),
-                paddle.pos_bounds(parameters.as_ref()),
-            ); */
+            unimplemented!() /* // Update the paddle position,
+                             // making sure it doesn't cause the paddle to leave the arena
+                             transform.translation = new_paddle_position.clamp(
+                                 paddle.neg_bounds(parameters.as_ref()),
+                                 paddle.pos_bounds(parameters.as_ref()),
+                             ); */
         }
     }
 }
@@ -438,12 +438,12 @@ fn apply_velocity(mut query: Query<(&mut Transform, &Velocity, Option<&Ball>)>, 
     for (mut transform, velocity, maybe_ball) in &mut query {
         transform.translation.x += velocity.x * time.delta_seconds();
         transform.translation.y += velocity.y * time.delta_seconds();
-        /* if maybe_ball.is_some() {
-            transform.translation = transform.translation.clamp(
-                parameters.ball.neg_bounds(parameters.as_ref()),
-                parameters.ball.pos_bounds(parameters.as_ref()),
-            );
-        } */
+        unimplemented!() /* if maybe_ball.is_some() {
+                             transform.translation = transform.translation.clamp(
+                                 parameters.ball.neg_bounds(parameters.as_ref()),
+                                 parameters.ball.pos_bounds(parameters.as_ref()),
+                             );
+                         } */
     }
 }
 
@@ -458,6 +458,7 @@ fn update_scoreboards(scoreboard: Res<Scoreboards>, mut query: Query<&mut Text>)
 #[allow(clippy::too_many_arguments)]
 #[allow(clippy::type_complexity)]
 fn check_for_collisions(
+    level: Res<State<AppStates>>,
     mut commands: Commands,
     mut scoreboard: ResMut<Scoreboards>,
     mut ball_query: Query<(&mut Velocity, &Transform, &Ball)>,
@@ -466,6 +467,10 @@ fn check_for_collisions(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    let level = match level.into_inner().get() {
+        AppStates::Menu => return,
+        AppStates::Level1(level) => level,
+    };
     for (mut ball_velocity, ball_transform, ball) in ball_query.iter_mut() {
         let ball_size = ball_transform.scale.truncate();
 
@@ -481,7 +486,9 @@ fn check_for_collisions(
                 // Sends a collision event so that other systems can react to the collision
                 collision_events.send_default();
                 if let Some(wall) = maybe_wall {
-                    todo!("Cuando haya añadido los states, coger de ahí el level y meter aquí la wall_that_gives_points");
+                    for (i, paddle) in level.paddles {
+                        if wall == paddle.
+                    }
                     for (i, _wall) in players_query
                         .iter()
                         .map(|e| e.wall_that_gives_points)
