@@ -1,6 +1,7 @@
 //! A simplified implementation of the classic game "Breakout".
 
 pub mod types;
+pub mod parameters;
 
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::{

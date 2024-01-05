@@ -287,6 +287,7 @@ pub mod parameters {
     use toml::to_string;
     use tuple_conv::RepeatedTuple as _;
 
+    use super::super::parameters::*;
     use super::components::{Ball, Paddle, Player, Wall};
 
     const PARAMETERS_FILE_PATH: &str = "parameters.toml";
@@ -380,16 +381,16 @@ pub mod parameters {
 
             let levels = {
                 // WALLS: parameters
-                let n: usize = 4;
+                let n_walls: usize = 4;
                 let ends: Vec<(f32, f32)> =
                     ((-600., -300.), (-600., 300.), (600., 300.), (600., -300.)).to_vec();
-                let thicknesses: Vec<f32> = vec![10.; n];
-                let colors: Vec<(f32, f32, f32, f32)> = vec![(0.8, 0.8, 0.8, 1.); n];
+                let thicknesses: Vec<f32> = vec![10.; n_walls];
+                let colors: Vec<(f32, f32, f32, f32)> = vec![(0.8, 0.8, 0.8, 1.); n_walls];
 
                 // WALLS: checking parameters
-                assert!(ends.len() == n);
-                assert!(thicknesses.len() == n);
-                assert!(colors.len() == n);
+                assert!(ends.len() == n_walls);
+                assert!(thicknesses.len() == n_walls);
+                assert!(colors.len() == n_walls);
 
                 // WALLS: convert to R32
                 let ends: Vec<(R32, R32)> = ends
@@ -417,7 +418,7 @@ pub mod parameters {
                 // WALLS: construct
                 let mut walls: Vec<Wall> = Vec::new();
                 for (id, ends, thickness, color) in izip!(
-                    (0..n),
+                    (0..n_walls),
                     ends.iter()
                         .cloned()
                         .zip(ends.iter().cloned().cycle().skip(1)),
@@ -433,25 +434,26 @@ pub mod parameters {
                     walls.push(wall);
                 }
 
-                // PADDLES: parameters
-                let width: f32 = 20.;
-                let height: f32 = 120.;
-                // x is dynamic
-                let y: f32 = 0.;
-                let z: f32 = 0.;
-                let speed: f32 = 500.;
-                let color_rgba: (f32, f32, f32, f32) = (0.3, 0.3, 0.7, 1.);
-
-                // Positivize unnegativazible parameters
-                let width = width.abs();
-                let height = height.abs();
-                let speed = speed.abs();
-                let color = Color::rgb(0., 0., 0.);
+                // PADDLES
+                // Assert lengths
+                assert!(PADDLES_WIDTH.len() == PADDLES_N);
+                assert!(PADDLES_HEIGHT.len() == PADDLES_N);
+                assert!(PADDLES_X.len() == PADDLES_N);
+                assert!(PADDLES_Y.len() == PADDLES_N);
+                assert!(PADDLES_Z.len() == PADDLES_N);
+                assert!(PADDLES_BOUNDS.len() == PADDLES_N);
+                assert!(PADDLES_SPEED.len() == PADDLES_N);
+                assert!(PADDLES_COLOR_RGBA.len() == PADDLES_N);
+                // Transform into R32 while positivizing unnegativazible parameters
+                let paddles_width = PADDLES_WIDTH.iter().map(|e| e.abs()).collect();
+                let paddles_height = PADDLES_HEIGHT.iter().map(|e| e.abs()).collect();
+                let speed = PADDLES_SPEED.iter().map(|e| e.abs()).collect();
+                let color_rgba = PADDLES_COLOR_RGBA.iter().map(|ee| ee.to_vec().iter().map(|e| ))
 
                 let paddle = |x: f32, bounds: Vec<(f32, f32)>, wall_that_gives_points: usize| {
                     // Transform into R32, so we can Serialize, Deserialize and have Eq (required by trait States)
-                    let width = R32::from(width);
-                    let height = R32::from(height);
+                    let PADDLES_WIDTH = R32::from(PADDLES_WIDTH);
+                    let PADDLES_HEIGHT = R32::from(PADDLES_HEIGHT);
                     let x = R32::from(x);
                     let y = R32::from(y);
                     let z = R32::from(z);
@@ -481,14 +483,8 @@ pub mod parameters {
                     }
                 };
 
-                let x_1 = -100.;
-                let bounds_1 = ((-100., -100.), (-100., 100.)).to_vec();
-                let wall_that_gives_points_1 = 0;
                 let paddle_1 = paddle(x_1, bounds_1, wall_that_gives_points_1);
 
-                let x_2 = 100.;
-                let bounds_2 = ((100., -100.), (100., 100.)).to_vec();
-                let wall_that_gives_points_2 = 1;
                 let paddle_2 = paddle(x_2, bounds_2, wall_that_gives_points_2);
 
                 let paddles = vec![paddle_1, paddle_2];
