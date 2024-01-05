@@ -21,6 +21,13 @@ fn main() {
     println!("debug_assertions is {:?}", cfg!(debug_assertions));
 
     let parameters = parameters_from_toml();
+    
+    let mut dyn_list: Vec<Box<dyn _>> = vec![];
+
+    dyn_list.push(Box::new( 0u16 ));
+    dyn_list.push(Box::new( "hello" ));
+
+    println!("{:?}", dyn_list);
 
     App::new()
         .add_plugins(DefaultPlugins)

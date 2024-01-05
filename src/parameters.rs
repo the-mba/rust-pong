@@ -25,30 +25,14 @@ impl ParametersPaddles {
         }
     }
 
-    pub fn get_verified() -> Self {
+    pub fn get_verified<T: bevy::reflect::List + Reflect>() -> Self {
         let s = Self::new();
-        let n = s.n;
-        for field in s.iter_fields() {
-            assert!(field.downcast_ref::<std::vec::Vec<_>>().unwrap().len() == n);
-        }
 
-        assert!(s.width.len() == n);
-        assert!(s.height.len() == n);
-        assert!(s.x.len() == n);
-        assert!(s.y.len() == n);
-        assert!(s.z.len() == n);
-        assert!(s.bounds.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
-        assert!(s.width.len() == n);
+        for field in s.iter_fields() {
+            if let Some(field) = field.downcast_ref::<T>() {
+                assert!(field.len() == s.n);
+            }
+        }
 
         s
     }
