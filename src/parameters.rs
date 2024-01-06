@@ -63,7 +63,7 @@ impl ParametersPaddles {
         }
 
         // n is auto-verified, all other vecs must have .len() == n
-        let n = unverified_n;
+        let n = unverified_n; 
 
         assert!(unverified_width.len() == n);
         assert!(unverified_height.len() == n);
@@ -75,40 +75,44 @@ impl ParametersPaddles {
         assert!(unverified_color_rgba.len() == n);
         assert!(unverified_wall_gives_points.len() == n);
 
-        fn verify_non_zero_real(&r: f32) {
-            assert!(r > 0 && !r.is_nan() && !r.is_infinite());
+        fn verify_non_zero(r: f32) -> f32 {
+            assert!(r != 0);
             r
         }
 
         let width = unverified_width
             .iter()
-            .map(|e| R32::from(verify_non_zero_real(e).abs()))
+            .map(|e| R32::from(verify_non_zero(e).abs()))
             .collect();
         let height = unverified_height
             .iter()
-            .map(|e| R32::from(verify_non_zero_real(e).abs()))
+            .map(|e| R32::from(verify_non_zero(e).abs()))
             .collect();
-        let x = paddles::X.iter().map(|e| R32::from(e)).collect();
-        let y = paddles::Y.iter().map(|e| R32::from(e)).collect();
-        let z = paddles::Z.iter().map(|e| R32::from(e)).collect();
+        let x = unverified_x.iter().map(|e| R32::from(e)).collect();
+        let y = unverified_y.iter().map(|e| R32::from(e)).collect();
+        let z = unverified_z.iter().map(|e| R32::from(e)).collect();
         let bounds = paddles::BOUNDS
             .iter()
-            .map(|ee| ee.iter().map(|e| R32::from(e)).collect())
-            .collect();
-        let speed = paddles::SPEED;
-        let color_rgba = paddles::COLOR_RGBA;
+            .map(|eee| eee
+                .iter()
+                .map(|ee| ee.to_vec().iter().map(|e| R32::from(e)).collect_tuple().unwrap())
+                .collect()
+            ).collect();
+        let speed = unverified_speed
+            .iter().map(|e| R32::from(e)).collect();
+        let color_rgba = paddles::COLOR_RGBA;.clamp(MIN_RGBA_VALUE, MAX_RGBA_VALUE)
         let wall_gives_points = paddles::WALL_GIVES_POINTS;
 
         Self {
             n,
             width,
-            height, .abs()
+            height,
             x,
             y,
             z,
             bounds,
             speed,
-            color_rgba,  .clamp(MIN_RGBA_VALUE, MAX_RGBA_VALUE))
+            color_rgba,
             wall_gives_points,
         }
     }
