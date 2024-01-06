@@ -26,16 +26,68 @@ mod paddles {
 // PADDLES: parameters
 //  Bounds: Collection of points, will compute area inside resulting polygon(s). No need to repeat the first point at the end; list will cycle
 impl ParametersPaddles {
-    fn new_from_const() -> Self {
-        let n = paddles::N;
-        assert!(if let Some(min_value) = paddles::WIDTH.iter().min() {
-            min_value > 0. && !min_value.is_nan() && !min_value.is_infinite()
-        });
-        assert!(if let Some(min_value) = paddles::HEIGHT.iter().min() {
-            min_value > 0. && !min_value.is_nan() && !min_value.is_infinite()
-        });
-        let width = paddles::WIDTH.iter().map(|e| R32::from(e.abs())).collect();
-        let height = paddles::HEIGHT.iter().map(|e| R32::from(e.abs())).collect();
+    fn new_verified(s: Self, from_const: bool) -> Self {
+        let unverified_n;
+        let unverified_width;
+        let unverified_height;
+        let unverified_x;
+        let unverified_y;
+        let unverified_z;
+        let unverified_bounds;
+        let unverified_speed;
+        let unverified_color_rgba;
+        let unverified_wall_gives_points;
+
+        if from_const {
+            unverified_n = paddles::N;
+            unverified_width = paddles::WIDTH;
+            unverified_height = paddles::HEIGHT;
+            unverified_x = paddles::X;
+            unverified_y = paddles::Y;
+            unverified_z = paddles::Z;
+            unverified_bounds = paddles::BOUNDS;
+            unverified_speed = paddles::SPEED;
+            unverified_color_rgba = paddles::COLOR_RGBA;
+            unverified_wall_gives_points = paddles::WALL_GIVES_POINTS;
+        } else {
+            unverified_n = s.n;
+            unverified_width = s.width;
+            unverified_height = s.height;
+            unverified_x = s.x;
+            unverified_y = s.y;
+            unverified_z = s.z;
+            unverified_bounds = s.bounds;
+            unverified_speed = s.speed;
+            unverified_color_rgba = s.color_rgba;
+            unverified_wall_gives_points = s.wall_gives_points;
+        }
+
+        // n is auto-verified, all other vecs must have .len() == n
+        let n = unverified_n;
+
+        assert!(unverified_width.len() == n);
+        assert!(unverified_height.len() == n);
+        assert!(unverified_x.len() == n);
+        assert!(unverified_y.len() == n);
+        assert!(unverified_z.len() == n);
+        assert!(unverified_bounds.len() == n);
+        assert!(unverified_speed.len() == n);
+        assert!(unverified_color_rgba.len() == n);
+        assert!(unverified_wall_gives_points.len() == n);
+
+        fn verify_non_zero_real(&r: f32) {
+            assert!(r > 0 && !r.is_nan() && !r.is_infinite());
+            r
+        }
+
+        let width = unverified_width
+            .iter()
+            .map(|e| R32::from(verify_non_zero_real(e).abs()))
+            .collect();
+        let height = unverified_height
+            .iter()
+            .map(|e| R32::from(verify_non_zero_real(e).abs()))
+            .collect();
         let x = paddles::X.iter().map(|e| R32::from(e)).collect();
         let y = paddles::Y.iter().map(|e| R32::from(e)).collect();
         let z = paddles::Z.iter().map(|e| R32::from(e)).collect();
@@ -50,69 +102,15 @@ impl ParametersPaddles {
         Self {
             n,
             width,
-            height,
+            height, .abs()
             x,
             y,
             z,
             bounds,
             speed,
-            color_rgba,
+            color_rgba,  .clamp(MIN_RGBA_VALUE, MAX_RGBA_VALUE))
             wall_gives_points,
         }
-    }
-
-    fn width(&self) -> &Vec<f32> {
-        &self.width
-    }
-
-    pub fn get_verified() -> Self {
-        let s = Self::new();
-        // Assert lengths
-        for field in s.iter_fields() {
-            if let Some(field) = field.downcast_ref::<Vec<f32>>() {
-                assert!(field.len() == s.n);
-                continue;
-            }
-            if let Some(field) = field.downcast_ref::<Vec<Vec<(f32, f32)>>>() {
-                assert!(field.len() == s.n);
-                continue;
-            }
-            if let Some(field) = field.downcast_ref::<Vec<(f32, f32, f32, f32)>>() {
-                assert!(field.len() == s.n);
-                continue;
-            }
-        }
-        // Asserting non-zero and positivizing negatives
-        s.width = s
-            .width
-            .iter()
-            .map(|e| {
-                assert!(*e != 0.);
-                e.abs()
-            })
-            .collect();
-        s.height = s
-            .height
-            .iter()
-            .map(|e| {
-                assert!(*e != 0.);
-                e.abs()
-            })
-            .collect();
-        s.speed = s.speed.iter().map(|e| e.abs()).collect();
-        s.color_rgba = s
-            .color_rgba
-            .iter()
-            .map(|ee| {
-                ee.to_vec()
-                    .iter()
-                    .map(|e| e.clamp(MIN_RGBA_VALUE, MAX_RGBA_VALUE))
-                    .collect_tuple()
-                    .unwrap()
-            })
-            .collect();
-
-        s
     }
 }
 
