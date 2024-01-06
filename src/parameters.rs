@@ -1,25 +1,47 @@
-use bevy::reflect::Reflect;
+use proc_macro::TokenStream;
+use quote::ToTokens;
+use syn::{
+    parse_macro_input, parse_quote,
+    visit_mut::{self, VisitMut},
+    Expr, ExprLit, Lit, LitInt,
+};
+
+// actual procedural macro
+#[proc_macro]
+pub fn vector(input: TokenStream) -> TokenStream {
+    let mut input = parse_macro_input!(input as Expr);
+    LiteralReplacer.visit_expr_mut(&mut input);
+    input.into_token_stream().into()
+}
+
 use decorum::R32;
 
 const MIN_RGBA_VALUE: f32 = 0.;
 const MAX_RGBA_VALUE: f32 = 1.;
 
+#[derive(Clone)]
+enum Value {
+    Finite(f32),
+    NonZero(f32),
+}
+
 mod paddles {
+    use super::Value::{self, Finite, NonZero};
     use tuple_conv::RepeatedTuple as _;
 
     pub const N: usize = 2;
-    pub const WIDTH: Vec<f32> = vec![20.; N];
-    pub const HEIGHT: Vec<f32> = vec![120.; N];
-    pub const X: Vec<f32> = (-100., 100.).to_vec();
-    pub const Y: Vec<f32> = vec![0.; N];
-    pub const Z: Vec<f32> = vec![0.; N];
-    pub const BOUNDS: Vec<Vec<(f32, f32)>> = (
+    pub const WIDTH: Vec<Value> = vec![NonZero(20.); N];
+    pub const HEIGHT: Vec<Value> = vec![NonZero(120.); N];
+    pub const X: Vec<Value> = (-100., 100.).to_vec();
+    pub const Y: Vec<Value> = vec![0.; N];
+    pub const Z: Vec<Value> = vec![0.; N];
+    pub const BOUNDS: Vec<Vec<(Value, Value)>> = (
         ((-100., -100.), (-100., 100.)).to_vec(),
         ((100., -100.), (100., 100.)).to_vec(),
     )
         .to_vec();
-    pub const SPEED: Vec<f32> = vec![500.; N];
-    pub const COLOR_RGBA: Vec<(f32, f32, f32, f32)> = vec![(0.3, 0.3, 0.7, 1.); N];
+    pub const SPEED: Vec<Value> = vec![500.; N];
+    pub const COLOR_RGBA: Vec<(Value, Value, Value, Value)> = vec![(0.3, 0.3, 0.7, 1.); N];
     pub const WALL_GIVES_POINTS: Vec<usize> = (0, 2).to_vec();
 }
 
@@ -63,7 +85,7 @@ impl ParametersPaddles {
         }
 
         // n is auto-verified, all other vecs must have .len() == n
-        let n = unverified_n; 
+        let n = unverified_n;
 
         assert!(unverified_width.len() == n);
         assert!(unverified_height.len() == n);
@@ -93,14 +115,29 @@ impl ParametersPaddles {
         let z = unverified_z.iter().map(|e| R32::from(e)).collect();
         let bounds = paddles::BOUNDS
             .iter()
-            .map(|eee| eee
-                .iter()
-                .map(|ee| ee.to_vec().iter().map(|e| R32::from(e)).collect_tuple().unwrap())
-                .collect()
-            ).collect();
-        let speed = unverified_speed
-            .iter().map(|e| R32::from(e)).collect();
-        let color_rgba = paddles::COLOR_RGBA;.clamp(MIN_RGBA_VALUE, MAX_RGBA_VALUE)
+            .map(|eee| {
+                eee.iter()
+                    .map(|ee| {
+                        ee.to_vec()
+                            .iter()
+                            .map(|e| R32::from(e))
+                            .collect_tuple()
+                            .unwrap()
+                    })
+                    .collect()
+            })
+            .collect();
+        let speed = unverified_speed.iter().map(|e| R32::from(e)).collect();
+        let color_rgba = unverified_color_rgba
+            .iter()
+            .map(|ee| {
+                ee.to_vec()
+                    .iter()
+                    .map(|e| e.clamp(MIN_RGBA_VALUE, MAX_RGBA_VALUE))
+                    .collect_tuple()
+                    .unwrap()
+            })
+            .collect();
         let wall_gives_points = paddles::WALL_GIVES_POINTS;
 
         Self {
@@ -118,7 +155,6 @@ impl ParametersPaddles {
     }
 }
 
-#[derive(Reflect)]
 pub struct ParametersPaddles {
     pub n: usize,
     pub width: Vec<R32>,
