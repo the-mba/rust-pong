@@ -1,23 +1,13 @@
-use proc_macro::TokenStream;
-use quote::ToTokens;
-use syn::{
-    parse_macro_input, parse_quote,
-    visit_mut::{self, VisitMut},
-    Expr, ExprLit, Lit, LitInt,
-};
-
-// actual procedural macro
-#[proc_macro]
-pub fn vector(input: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(input as Expr);
-    LiteralReplacer.visit_expr_mut(&mut input);
-    input.into_token_stream().into()
-}
-
 use decorum::R32;
 
 const MIN_RGBA_VALUE: f32 = 0.;
 const MAX_RGBA_VALUE: f32 = 1.;
+
+enum VecTypes {
+    VecValue(Vec<R32>),
+    VecVecValue2Tuple(Vec<Vec<(Value, Value)>>),
+    VecValue4Tuple(Vec<(Value, Value, Value, Value)>),
+}
 
 #[derive(Clone)]
 enum Value {
@@ -25,24 +15,26 @@ enum Value {
     NonZero(f32),
 }
 
-mod paddles {
-    use super::Value::{self, Finite, NonZero};
-    use tuple_conv::RepeatedTuple as _;
+mod defaults {
+    pub mod paddles {
+        use super::super::Value::{self, Finite, NonZero};
+        use tuple_conv::RepeatedTuple as _;
 
-    pub const N: usize = 2;
-    pub const WIDTH: Vec<Value> = vec![NonZero(20.); N];
-    pub const HEIGHT: Vec<Value> = vec![NonZero(120.); N];
-    pub const X: Vec<Value> = (-100., 100.).to_vec();
-    pub const Y: Vec<Value> = vec![0.; N];
-    pub const Z: Vec<Value> = vec![0.; N];
-    pub const BOUNDS: Vec<Vec<(Value, Value)>> = (
-        ((-100., -100.), (-100., 100.)).to_vec(),
-        ((100., -100.), (100., 100.)).to_vec(),
-    )
-        .to_vec();
-    pub const SPEED: Vec<Value> = vec![500.; N];
-    pub const COLOR_RGBA: Vec<(Value, Value, Value, Value)> = vec![(0.3, 0.3, 0.7, 1.); N];
-    pub const WALL_GIVES_POINTS: Vec<usize> = (0, 2).to_vec();
+        const N: usize = 2;
+        const WIDTH: Vec<Value> = vec![20.; N];
+        const HEIGHT: Vec<Value> = vec![120.; N];
+        const X: Vec<Value> = (-100., 100.).to_vec();
+        const Y: Vec<Value> = vec![0.; N];
+        const Z: Vec<Value> = vec![0.; N];
+        const BOUNDS: Vec<Vec<(Value, Value)>> = (
+            ((-100., -100.), (-100., 100.)).to_vec(),
+            ((100., -100.), (100., 100.)).to_vec(),
+        )
+            .to_vec();
+        const SPEED: Vec<Value> = vec![500.; N];
+        const COLOR_RGBA: Vec<(Value, Value, Value, Value)> = vec![(0.3, 0.3, 0.7, 1.); N];
+        const WALL_GIVES_POINTS: Vec<usize> = (0, 2).to_vec();
+    }
 }
 
 // PADDLES: parameters
@@ -61,16 +53,16 @@ impl ParametersPaddles {
         let unverified_wall_gives_points;
 
         if from_const {
-            unverified_n = paddles::N;
-            unverified_width = paddles::WIDTH;
-            unverified_height = paddles::HEIGHT;
-            unverified_x = paddles::X;
-            unverified_y = paddles::Y;
-            unverified_z = paddles::Z;
-            unverified_bounds = paddles::BOUNDS;
-            unverified_speed = paddles::SPEED;
-            unverified_color_rgba = paddles::COLOR_RGBA;
-            unverified_wall_gives_points = paddles::WALL_GIVES_POINTS;
+            unverified_n = defaults::paddles::N;
+            unverified_width = defaults::paddles::WIDTH;
+            unverified_height = defaults::paddles::HEIGHT;
+            unverified_x = defaults::paddles::X;
+            unverified_y = defaults::paddles::Y;
+            unverified_z = defaults::paddles::Z;
+            unverified_bounds = defaults::paddles::BOUNDS;
+            unverified_speed = defaults::paddles::SPEED;
+            unverified_color_rgba = defaults::paddles::COLOR_RGBA;
+            unverified_wall_gives_points = defaults::paddles::WALL_GIVES_POINTS;
         } else {
             unverified_n = s.n;
             unverified_width = s.width;
