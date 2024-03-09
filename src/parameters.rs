@@ -34,6 +34,8 @@ mod defaults {
         const SPEED: Vec<Value> = vec![500.; N];
         const COLOR_RGBA: Vec<(Value, Value, Value, Value)> = vec![(0.3, 0.3, 0.7, 1.); N];
         const WALL_GIVES_POINTS: Vec<usize> = (0, 2).to_vec();
+
+        pub 
     }
 }
 
